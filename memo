@@ -1,0 +1,96 @@
+1) 전체 구조(한 줄)
+
+Flutter(고객앱) = 입력 받고 요청 보냄 + 상태 보여줌
+
+백엔드(API) = 호출 생성/배차/상태관리/DB 저장
+
+관리자 웹 = 운영/모니터링/정산 (앱이랑 같은 API를 씀)
+
+2) 연결 순서(실전)
+Step A) 백엔드에 “호출 생성 API”부터 만든다
+
+예시(너가 Express/Prisma 쓴다고 가정):
+
+POST /rides (출발지/도착지/옵션/결제수단)
+
+GET /rides/:id (현재 상태 조회)
+
+(나중) POST /rides/:id/cancel
+
+응답 예:
+
+{ "rideId": "uuid", "status": "REQUESTED" }
+Step B) Flutter에서 버튼 눌렀을 때 POST /rides 호출
+
+출발/도착 TextField 값 읽기
+
+http 또는 dio로 API 요청
+
+응답으로 받은 rideId 저장
+
+다음 화면(상태 화면)로 이동하거나 하단에 상태 표시
+
+Step C) “상태 업데이트”를 붙인다
+
+처음엔 단순하게:
+
+2~3초마다 GET /rides/:id 폴링
+나중에:
+
+WebSocket으로 ride.status_changed 받기
+
+3) 네 FE/BE에 실제로 “어디를” 연결하냐
+Flutter FE 쪽
+
+lib/ 안에 api/ride_api.dart 같은 파일 만들고
+
+여기서 createRide() 같은 함수로 서버 호출
+
+BE(Express) 쪽
+
+routes/rides.ts
+
+controllers/ridesController.ts
+
+prisma로 Ride 테이블에 저장
+
+관리자 웹
+
+같은 API를 호출해서 rides 목록/상태/로그를 테이블로 보여줌
+
+즉, Flutter는 관리자웹이랑 경쟁하는 게 아니라 같은 백엔드를 공유함.
+
+4) 개발할 때 로컬 연결(제일 많이 막히는 포인트)
+에뮬레이터/폰에서 localhost 주의
+
+안드로이드 에뮬레이터에서 PC의 localhost 접근:
+
+http://10.0.2.2:3001
+
+실제 폰(USB/Wi-Fi) 에서 PC 서버 접근:
+
+http://PC의 로컬 IP:3001 (예: http://192.168.0.12:3001)
+
+CORS는 웹에서 주로 문제고, Flutter는 보통 CORS 영향이 적지만
+
+HTTPS/인증 토큰/쿠키 방식이면 설계가 달라짐(앱은 보통 Bearer 토큰)
+
+5) 최소 연결 예시(개념)
+
+“호출 버튼” 누름
+
+Flutter가 POST /rides 보냄
+
+서버가 DB에 ride 생성하고 rideId 반환
+
+Flutter가 rideId 저장하고 “배차 대기 화면”으로 이동
+
+주기적으로 GET /rides/:id 해서 상태 표시
+
+6) 너한테 필요한 다음 작업(딱 3개)
+
+백엔드에 POST /rides / GET /rides/:id 만들기
+
+Flutter에 API_BASE_URL 넣고(환경변수 추천)
+
+호출 버튼에 API 연결하기
