@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTP(cleartext) API를 쓸 때만: <domain-config>에 IP 또는 도메인 추가 -->
+<network-security-config>
+</network-security-config>
