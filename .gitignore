@@ -43,6 +43,9 @@ app.*.map.json
 .env
 assets/env_defaults.env
 
+# 로컬 메모 (GitHub에 올리지 않음)
+/memo
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
