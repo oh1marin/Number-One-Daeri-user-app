@@ -9,6 +9,18 @@ import 'api_client.dart';
 class AuthApi {
   static const _base = '/auth';
 
+  static void _logDioError(String tag, DioException e) {
+    final uri = e.requestOptions.uri;
+    debugPrint(
+      '[$tag] DioException type=${e.type} uri=$uri '
+      'status=${e.response?.statusCode} message=${e.message}',
+    );
+    final data = e.response?.data;
+    if (data != null) {
+      debugPrint('[$tag] response.data=$data');
+    }
+  }
+
   static Future<ApiResponse<AuthResponse>> register({
     required String email,
     required String password,
@@ -57,15 +69,22 @@ class AuthApi {
     required String phone,
   }) async {
     final phoneClean = phone.replaceAll(RegExp(r'[^\d]'), '');
-    debugPrint('[AuthApi] sendPhoneOtp phone=$phoneClean');
-    final res = await ApiClient.post('$_base/phone/send', {
-      'phone': phoneClean,
-    });
-    final map = res.data as Map<String, dynamic>?;
-    return ApiResponse.fromJson(
-      map ?? {},
-      (d) => d as Map<String, dynamic>,
+    final path = '$_base/phone/send';
+    debugPrint(
+      '[AuthApi] sendPhoneOtp phone=$phoneClean baseUrl=${ApiClient.dio.options.baseUrl} path=$path',
     );
+    try {
+      final res = await ApiClient.post(path, {'phone': phoneClean});
+      debugPrint('[AuthApi] sendPhoneOtp response status=${res.statusCode}');
+      final map = res.data as Map<String, dynamic>?;
+      return ApiResponse.fromJson(map ?? {}, (d) => d as Map<String, dynamic>);
+    } on DioException catch (e) {
+      _logDioError('AuthApi.sendPhoneOtp', e);
+      return ApiResponse(success: false, data: null, error: e.message ?? '${e.type}');
+    } catch (e) {
+      debugPrint('[AuthApi] sendPhoneOtp error=$e');
+      return ApiResponse(success: false, data: null, error: e.toString());
+    }
   }
 
   /// OTP 검증 + 로그인/회원가입
@@ -74,17 +93,31 @@ class AuthApi {
     required String phone,
     required String code,
   }) async {
-    final res = await ApiClient.post('$_base/phone/verify', {
-      'phone': phone.replaceAll(RegExp(r'[^\d]'), ''),
-      'code': code,
-    });
-    final map = res.data as Map<String, dynamic>? ?? {};
-    final data = map['data'] as Map<String, dynamic>? ?? map;
-    return ApiResponse(
-      success: map['success'] as bool? ?? false,
-      data: data,
-      error: map['error'] as String?,
+    final path = '$_base/phone/verify';
+    debugPrint(
+      '[AuthApi] verifyPhoneOtp phone=${phone.replaceAll(RegExp(r'[^\d]'), '')} '
+      'baseUrl=${ApiClient.dio.options.baseUrl} path=$path',
     );
+    try {
+      final res = await ApiClient.post(path, {
+        'phone': phone.replaceAll(RegExp(r'[^\d]'), ''),
+        'code': code,
+      });
+      debugPrint('[AuthApi] verifyPhoneOtp response status=${res.statusCode}');
+      final map = res.data as Map<String, dynamic>? ?? {};
+      final data = map['data'] as Map<String, dynamic>? ?? map;
+      return ApiResponse(
+        success: map['success'] as bool? ?? false,
+        data: data,
+        error: map['error'] as String?,
+      );
+    } on DioException catch (e) {
+      _logDioError('AuthApi.verifyPhoneOtp', e);
+      return ApiResponse(success: false, data: null, error: e.message ?? '${e.type}');
+    } catch (e) {
+      debugPrint('[AuthApi] verifyPhoneOtp error=$e');
+      return ApiResponse(success: false, data: null, error: e.toString());
+    }
   }
 
   /// 백엔드 연결 테스트 (connect-test)

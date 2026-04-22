@@ -1,4 +1,4 @@
-package com.example.number_one_daeri_user_app
+package com.numberonedaeri.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

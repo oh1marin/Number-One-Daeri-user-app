@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// 빌드 시 오버라이드 (`flutter-sideload-api-base-url.md` 참고):
 /// `--dart-define=API_BASE_URL=https://<도메인>/api/v1/`
@@ -7,6 +8,11 @@ const String _apiBaseUrlFromEnv = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: '',
 );
+
+String _apiBaseUrlFromDotEnv() {
+  final v = dotenv.env['API_BASE_URL'];
+  return (v ?? '').trim();
+}
 
 /// Release 기본 플레이스홀더 (저장소에는 실제 운영 호스트를 넣지 않음).
 /// 실제 배포 빌드는 `--dart-define=API_BASE_URL=...` 로 운영 URL을 넘기는 것을 권장.
@@ -28,6 +34,8 @@ String _normalizeApiBaseUrl(String raw) {
 String get apiBaseUrl {
   final fromEnv = _normalizeApiBaseUrl(_apiBaseUrlFromEnv);
   if (fromEnv.isNotEmpty) return fromEnv;
+  final fromDotEnv = _normalizeApiBaseUrl(_apiBaseUrlFromDotEnv());
+  if (fromDotEnv.isNotEmpty) return fromDotEnv;
   return kReleaseMode
       ? _releaseDefaultApiBase
       : 'http://127.0.0.1:5174/api/v1/';
