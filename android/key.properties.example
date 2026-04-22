@@ -1,0 +1,13 @@
+# 이 파일을 복사해 `android/key.properties` 로 저장한 뒤 값만 채우세요.
+# Windows 예: copy android\key.properties.example android\key.properties
+#
+# storeFile 은 android 폴더 기준 상대 경로 (권장) 또는 절대 경로.
+# 예: 키를 D:\mobile\keys\upload.jks 에 두었다면
+#   storeFile=D:/mobile/keys/upload.jks
+# 예: android/app/release.jks 에 두었다면
+#   storeFile=app/release.jks
+
+storePassword=
+keyPassword=
+keyAlias=
+storeFile=

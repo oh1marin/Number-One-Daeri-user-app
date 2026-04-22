@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/rides_call_api.dart';
 import '../config/kakao_config.dart';
 import '../utils/app_snackbar.dart';
+import '../utils/idempotency.dart';
 import 'map_location_pin.dart';
 
 const LatLng _kDefaultCenter = LatLng(latitude: 37.5665, longitude: 126.9780);
@@ -88,6 +89,7 @@ class _PhoneCallModalContentState extends State<_PhoneCallModalContent> {
         addressDetail: '',
         phone: _kDispatchPhone,
         paymentMethod: 'cash',
+        clientCallId: generateClientCallId(),
       );
     } catch (_) {}
 

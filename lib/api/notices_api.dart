@@ -1,9 +1,45 @@
+import 'package:flutter/foundation.dart';
+
 import 'api_client.dart';
 
 /// 공지사항 API (공개, 인증 불필요할 수 있음)
-/// GET /notices?page=1&limit=10
+/// GET …/api/v1/notices?page=1&limit=20
+///
+/// Dio: `baseUrl`이 `…/api/v1/`일 때 경로는 **슬래시 없이** `notices`만 써야 함.
+/// `/notices`로 호출하면 호스트 루트 `/notices`로 나가 `/api/v1/notices`와 달라짐.
 class NoticesApi {
-  static const _path = '/notices';
+  static const _path = 'notices';
+
+  static List<Notice>? _itemsFromPayload(dynamic data) {
+    if (data is List) return _parseNoticeList(data);
+    if (data is! Map) return null;
+
+    final root = data;
+    if (root['items'] is List) return _parseNoticeList(root['items'] as List);
+    if (root['notices'] is List) {
+      return _parseNoticeList(root['notices'] as List);
+    }
+    if (root['results'] is List) {
+      return _parseNoticeList(root['results'] as List);
+    }
+
+    final inner = root['data'];
+    if (inner is List) return _parseNoticeList(inner);
+    if (inner is Map) {
+      final m = inner;
+      if (m['items'] is List) return _parseNoticeList(m['items'] as List);
+      if (m['notices'] is List) return _parseNoticeList(m['notices'] as List);
+      if (m['results'] is List) return _parseNoticeList(m['results'] as List);
+    }
+    return null;
+  }
+
+  static List<Notice> _parseNoticeList(List list) {
+    return list
+        .whereType<Map>()
+        .map((e) => Notice.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 
   static Future<List<Notice>> getList({int page = 1, int limit = 20}) async {
     try {
@@ -11,18 +47,16 @@ class NoticesApi {
         _path,
         queryParameters: {'page': page.toString(), 'limit': limit.toString()},
       );
-      final data = res.data;
-      List? items;
-      if (data is Map) {
-        items = (data['data']?['items'] ?? data['items'] ?? data) as List?;
-      } else if (data is List) {
-        items = data;
+      final parsed = _itemsFromPayload(res.data);
+      if (parsed != null) return parsed;
+      if (kDebugMode) {
+        debugPrint('[NoticesApi] unexpected shape: ${res.data.runtimeType}');
       }
-      if (items == null) return [];
-      return items
-          .map((e) => Notice.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
+      return [];
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[NoticesApi] GET notices failed: $e\n$st');
+      }
       return [];
     }
   }

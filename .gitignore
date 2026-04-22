@@ -50,3 +50,12 @@ assets/env_defaults.env
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android signing (never commit)
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+
+# Android local secrets (never commit)
+/android/gradle.properties.local
+/android/play_base.apk

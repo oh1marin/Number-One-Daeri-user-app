@@ -4,6 +4,8 @@ import 'package:kakao_maps_flutter/kakao_maps_flutter.dart';
 
 import 'api/api_client.dart';
 import 'config/kakao_config.dart';
+import 'routes/navigation.dart';
+import 'services/push_notification_service.dart';
 import 'screens/call/call_map_screen.dart';
 import 'screens/card/card_screen.dart';
 import 'screens/complaint/complaint_screen.dart';
@@ -30,8 +32,6 @@ import 'screens/splash/splash_screen.dart';
 import 'services/security_service.dart';
 import 'theme/app_theme.dart';
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -55,6 +55,9 @@ void main() async {
   };
   try {
     await KakaoMapsFlutter.init(kakaoMapApiKey);
+  } catch (_) {}
+  try {
+    await PushNotificationService.init();
   } catch (_) {}
   runApp(const MyApp());
 }

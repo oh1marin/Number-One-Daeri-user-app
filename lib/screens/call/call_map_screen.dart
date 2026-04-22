@@ -18,6 +18,7 @@ import '../../models/call_options.dart';
 import 'call_options_screen.dart';
 import '../../services/biometric_payment_service.dart';
 import '../../services/kakao_local_service.dart';
+import '../../utils/idempotency.dart';
 import '../../utils/app_snackbar.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/map_location_pin.dart';
@@ -103,6 +104,9 @@ class _CallMapScreenState extends State<CallMapScreen> {
   bool _focusMoveInProgress = false;
   bool _isDetailEditMode = false;
   _MapFocus? _detailEditTarget;
+
+  bool _isSubmittingCall = false;
+  String? _clientCallIdInFlight;
 
   @override
   void initState() {
@@ -1038,11 +1042,16 @@ class _CallMapScreenState extends State<CallMapScreen> {
           ),
           FilledButton(
             onPressed: () async {
+              if (_isSubmittingCall) return;
+              setState(() => _isSubmittingCall = true);
               AppPaymentMethod? chosenApp;
               RegisteredCard? chosenCard;
               if (_selectedPayment == PaymentMethod.appPayment) {
                 chosenApp = await _showAppPaymentChoice(context);
-                if (chosenApp == null) return;
+                if (chosenApp == null) {
+                  if (mounted) setState(() => _isSubmittingCall = false);
+                  return;
+                }
                 final useBiometric = await BiometricPaymentService.useBiometricForAppPayment;
                 if (_savedCards.isNotEmpty && _biometricSupported && useBiometric) {
                   final ok = await BiometricPaymentService.authenticate(
@@ -1051,16 +1060,23 @@ class _CallMapScreenState extends State<CallMapScreen> {
                   if (!context.mounted) return;
                   if (!ok) {
                     showErrorSnackBar(context, '인증이 필요합니다. 결제를 진행할 수 없습니다.');
+                    if (mounted) setState(() => _isSubmittingCall = false);
                     return;
                   }
                   chosenCard = _savedCards.length == 1
                       ? _savedCards.first
                       : await _showRegisteredCardChoice(context);
-                  if (chosenCard == null) return;
+                  if (chosenCard == null) {
+                    if (mounted) setState(() => _isSubmittingCall = false);
+                    return;
+                  }
                 }
               } else if (_selectedPayment == PaymentMethod.registeredCard) {
                 chosenCard = await _showRegisteredCardChoice(context);
-                if (chosenCard == null) return;
+                if (chosenCard == null) {
+                  if (mounted) setState(() => _isSubmittingCall = false);
+                  return;
+                }
               }
               Navigator.pop(context);
               try {
@@ -1085,6 +1101,7 @@ class _CallMapScreenState extends State<CallMapScreen> {
                             : chosenApp == AppPaymentMethod.kakaopay
                                 ? 'kakaopay'
                                 : 'tosspay';
+                _clientCallIdInFlight ??= generateClientCallId();
                 final rideId = await RidesCallApi.createCall(
                   latitude: _departure.latitude,
                   longitude: _departure.longitude,
@@ -1092,6 +1109,7 @@ class _CallMapScreenState extends State<CallMapScreen> {
                   addressDetail: _destination?.address.isNotEmpty == true ? _destination!.address : (_destination?.name ?? ''),
                   phone: '16680001',
                   paymentMethod: paymentMethod,
+                  clientCallId: _clientCallIdInFlight,
                   options: options,
                   estimatedDistanceKm: _destination != null ? _distanceKm : null,
                   estimatedFare: _destination != null ? _selectedFareAmount : null,
@@ -1179,6 +1197,9 @@ class _CallMapScreenState extends State<CallMapScreen> {
                 } else if (context.mounted) {
                   showSuccessSnackBar(context, '접수되었습니다.', title: '호출');
                 }
+
+                // 성공/완료되면 다음 호출을 위해 새 키를 쓰도록 초기화
+                _clientCallIdInFlight = null;
               } on DioException catch (e) {
                 if (context.mounted) {
                   final msg = e.response?.data is Map
@@ -1195,6 +1216,8 @@ class _CallMapScreenState extends State<CallMapScreen> {
                 if (context.mounted) {
                   showErrorSnackBar(context, '호출 전송에 실패했습니다.');
                 }
+              } finally {
+                if (mounted) setState(() => _isSubmittingCall = false);
               }
             },
             child: const Text('호출'),

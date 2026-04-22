@@ -1,4 +1,5 @@
 import 'api_client.dart';
+import '../utils/idempotency.dart';
 
 /// 결제 연동 — 결제 완료 시 백엔드 전송 (관리자 조회용)
 /// 스펙: POST /payments, 인증 Bearer {userAccessToken}
@@ -11,12 +12,17 @@ class PaymentsApi {
     required String rideId,
     required int amount,
     required String cardId,
+    String? idempotencyKey,
   }) async {
-    await ApiClient.post('$_base/charge-with-card', {
-      'rideId': rideId,
-      'amount': amount,
-      'cardId': cardId,
-    });
+    await ApiClient.postWithHeaders(
+      '$_base/charge-with-card',
+      data: {
+        'rideId': rideId,
+        'amount': amount,
+        'cardId': cardId,
+      },
+      headers: {'Idempotency-Key': idempotencyKey ?? generateIdempotencyKey()},
+    );
   }
 
   /// 결제 완료 시 호출. amount 필수, 나머지 선택.
@@ -33,6 +39,7 @@ class PaymentsApi {
     String? cardName,
     String? receiptUrl,
     Map<String, dynamic>? rawResponse,
+    String? idempotencyKey,
   }) async {
     final body = <String, dynamic>{
       'amount': amount,
@@ -45,7 +52,11 @@ class PaymentsApi {
       if (receiptUrl != null && receiptUrl.isNotEmpty) 'receiptUrl': receiptUrl,
       if (rawResponse != null) 'rawResponse': rawResponse,
     };
-    final res = await ApiClient.post(_base, body);
+    final res = await ApiClient.postWithHeaders(
+      _base,
+      data: body,
+      headers: {'Idempotency-Key': idempotencyKey ?? generateIdempotencyKey()},
+    );
     final map = res.data as Map<String, dynamic>?;
     final data = map?['data'] as Map<String, dynamic>? ?? map;
     return data != null ? Map<String, dynamic>.from(data) : null;

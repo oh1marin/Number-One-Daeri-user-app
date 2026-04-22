@@ -10,6 +10,7 @@ class ApiClient {
   ApiClient._();
 
   static late final Dio _dio;
+  static bool _loggedBaseUrl = false;
 
   static Dio get dio => _dio;
 
@@ -28,6 +29,13 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 10),
       headers: {'Content-Type': 'application/json'},
     ));
+
+    if (!_loggedBaseUrl) {
+      _loggedBaseUrl = true;
+      // debugPrint는 release에서 출력이 제한될 수 있어 print 사용
+      // ignore: avoid_print
+      print('[ApiClient] baseUrl=${_dio.options.baseUrl}');
+    }
 
     // Release 모드 + 인증서 핀닝 설정 시 MITM 방지
     if (kReleaseMode) {
@@ -55,6 +63,11 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (error, handler) async {
+          final status = error.response?.statusCode;
+          // ignore: avoid_print
+          print(
+            '[ApiClient] error status=$status url=${error.requestOptions.uri} msg=${error.message}',
+          );
           if (error.response?.statusCode != 401) {
             return handler.next(error);
           }
@@ -105,8 +118,30 @@ class ApiClient {
   static Future<Response<T>> post<T>(String path, [dynamic data]) =>
       _dio.post<T>(path, data: data);
 
+  static Future<Response<T>> postWithHeaders<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? headers,
+  }) =>
+      _dio.post<T>(
+        path,
+        data: data,
+        options: headers == null ? null : Options(headers: headers),
+      );
+
   static Future<Response<T>> put<T>(String path, [dynamic data]) =>
       _dio.put<T>(path, data: data);
 
   static Future<Response<T>> delete<T>(String path) => _dio.delete<T>(path);
+
+  static Future<Response<T>> deleteWithBody<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? headers,
+  }) =>
+      _dio.delete<T>(
+        path,
+        data: data,
+        options: headers == null ? null : Options(headers: headers),
+      );
 }

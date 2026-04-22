@@ -1,6 +1,7 @@
 import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../models/admin.dart';
+import 'push_notification_service.dart';
 import 'token_storage.dart';
 
 class AuthService {
@@ -33,6 +34,10 @@ class AuthService {
   }
 
   static Future<void> logout() async {
+    // best-effort: unregister token mapping for this user
+    try {
+      await PushNotificationService.deleteTokenFromBackend();
+    } catch (_) {}
     await TokenStorage.clear();
     ApiClient.setToken(null);
   }
@@ -46,5 +51,9 @@ class AuthService {
       refreshToken: refreshToken,
     );
     ApiClient.setToken(accessToken);
+    // best-effort: register current device token to this user
+    try {
+      await PushNotificationService.syncTokenToBackend();
+    } catch (_) {}
   }
 }

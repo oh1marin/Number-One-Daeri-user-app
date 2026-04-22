@@ -1,5 +1,6 @@
 import '../models/call_options.dart';
 import 'api_client.dart';
+import '../utils/idempotency.dart';
 
 /// 대리호출 생성 API
 /// 스펙: POST /rides/call
@@ -16,6 +17,7 @@ class RidesCallApi {
     required String addressDetail,
     required String phone,
     required String paymentMethod,
+    String? clientCallId,
     CallOptions? options,
     double? estimatedDistanceKm,
     int? estimatedFare,
@@ -29,6 +31,10 @@ class RidesCallApi {
       'addressDetail': addressDetail,
       'phone': phone,
       'paymentMethod': paymentMethod,
+      if ((clientCallId ?? '').isNotEmpty)
+        'clientCallId': clientCallId
+      else
+        'clientCallId': generateClientCallId(),
     };
     if (options != null) {
       body.addAll(options.toJson());

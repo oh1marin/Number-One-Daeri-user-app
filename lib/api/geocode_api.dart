@@ -54,7 +54,11 @@ class GeocodeApi {
       );
       final map = res.data as Map<String, dynamic>? ?? {};
       return GeocodeSearchResponse.fromJson(map);
-    } catch (_) {
+    } catch (e) {
+      // 백엔드가 죽어있거나 baseUrl이 잘못된 경우에도 UI가 조용히 빈 결과만 보이기 쉬워서,
+      // 최소한의 로그를 남깁니다.
+      // ignore: avoid_print
+      print('[GeocodeApi] searchAddress failed: $e');
       return GeocodeSearchResponse(items: [], totalCount: 0, isEnd: true);
     }
   }
@@ -79,7 +83,9 @@ class GeocodeApi {
       );
       final map = res.data as Map<String, dynamic>? ?? {};
       return GeocodeSearchResponse.fromJson(map);
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('[GeocodeApi] searchKeyword failed: $e');
       return GeocodeSearchResponse(items: [], totalCount: 0, isEnd: true);
     }
   }
