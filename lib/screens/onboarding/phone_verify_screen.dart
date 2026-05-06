@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/auth_api.dart';
 import '../../services/auth_service.dart';
+import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
 
@@ -94,6 +95,7 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
             refreshToken: refreshToken,
           );
           if (mounted) {
+            // Go to referrer onboarding (blue hero + input).
             Navigator.of(context).pushReplacementNamed(
               '/referrer',
               arguments: true,

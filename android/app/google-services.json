@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "373891560719",
+    "project_id": "daeri-43142",
+    "storage_bucket": "daeri-43142.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:373891560719:android:ec73141f8f6c08be147a7a",
+        "android_client_info": {
+          "package_name": "com.numberonedaeri.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8ZiQEa3HP9LF0Ika2J1t8nR10Lo8CpV4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

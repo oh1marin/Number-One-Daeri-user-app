@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/mileage_api.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/user_friendly_text.dart';
 
 /// 마일리지 화면 — 순수 마일리지만 표시 (쿠폰 완전 분리)
 class MileageScreen extends StatefulWidget {
@@ -13,7 +14,7 @@ class MileageScreen extends StatefulWidget {
   State<MileageScreen> createState() => _MileageScreenState();
 }
 
-class _MileageScreenState extends State<MileageScreen> {
+class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserver {
   int _balance = 0;
   int _withdrawable = 0;
   List<MileageHistoryItem> _history = [];
@@ -23,7 +24,23 @@ class _MileageScreenState extends State<MileageScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When user returns from background (or after receiving a push),
+    // refresh to reflect server-side mileage changes.
+    if (state == AppLifecycleState.resumed && mounted) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -45,12 +62,9 @@ class _MileageScreenState extends State<MileageScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() { _loading = false; _error = '잔액을 불러올 수 없습니다.'; });
+      if (mounted) setState(() { _loading = false; _error = '마일리지를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'; });
     }
   }
-
-  String _fmt(int n) => n.toString().replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +88,7 @@ class _MileageScreenState extends State<MileageScreen> {
                     padding: const EdgeInsets.all(20),
                     children: [
                       // 마일리지 잔액 카드
-                      _BalanceCard(balance: _balance, withdrawable: _withdrawable, fmt: _fmt),
+                      _BalanceCard(balance: _balance, withdrawable: _withdrawable, fmt: formatKrw),
                       const Gap(12),
 
                       // 쿠폰 분리 안내 배너
@@ -95,12 +109,12 @@ class _MileageScreenState extends State<MileageScreen> {
                         _EmptyHistory()
                       else
                         ..._history.map((e) => _TransactionItem(
-                          date: e.createdAt ?? '-',
+                          date: formatDateShort(e.createdAt),
                           desc: e.description ?? _typeLabel(e.type),
                           amount: e.amount,
                           balance: e.balance,
                           type: e.type,
-                          fmt: _fmt,
+                          fmt: formatKrw,
                         )),
                       const Gap(40),
                     ],
