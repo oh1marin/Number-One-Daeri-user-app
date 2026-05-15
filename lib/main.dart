@@ -31,6 +31,7 @@ import 'screens/withdrawal/withdrawal_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/security_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/responsive_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,9 +70,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
+      navigatorObservers: [routeObserver],
       title: '일등대리',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: ResponsiveLayout.clampedTextScaler(context)),
+          child: child,
+        );
+      },
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),

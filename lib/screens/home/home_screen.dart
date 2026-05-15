@@ -4,9 +4,13 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../api/mileage_api.dart';
 import '../../api/notices_api.dart';
 import '../../config/media_url.dart';
+import '../../routes/navigation.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive_layout.dart';
+import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/phone_call_modal.dart';
 import '../call/call_map_screen.dart';
@@ -16,33 +20,106 @@ void _shareAppLink(BuildContext context) {
 }
 
 /// 홈 화면 (MainScaffold의 body로 사용 - Scaffold 없음)
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onMenuTap});
 
   final VoidCallback? onMenuTap;
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver, RouteAware {
+  int _mileageBalance = 0;
+  bool _mileageLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadMileageBalance();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadMileageBalance();
+    }
+  }
+
+  @override
+  void didPopNext() {
+    // Returned to HomeScreen via Navigator.pop()
+    _loadMileageBalance();
+  }
+
+  Future<void> _loadMileageBalance() async {
+    try {
+      final bal = await MileageApi.getBalance();
+      if (!mounted) return;
+      setState(() {
+        _mileageBalance = bal.balance;
+        _mileageLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mileageLoaded = true; // keep last known balance; avoid spinner forever
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final gap = 14.0 * ResponsiveLayout.scale(context);
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _TopBar(onMenuTap: onMenuTap),
-              _NoticeRow(),
-              const Gap(20),
-              _MethodSelectRow(),
-              const Gap(14),
-              _MainAppCard(),
-              const Gap(14),
-              _TwoCards(),
-              const Gap(14),
-              _FriendReferralBanner(),
-              const Gap(14),
-              const _ThreeFeatureCards(),
-              const Gap(100),
-            ],
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: ResponsiveLayout.maxContentWidth(context),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TopBar(onMenuTap: widget.onMenuTap),
+                  _NoticeRow(),
+                  Gap(20 * ResponsiveLayout.scale(context)),
+                  _MethodSelectRow(
+                    mileageBalance: _mileageBalance,
+                    loaded: _mileageLoaded,
+                  ),
+                  Gap(gap),
+                  const _MainAppCard(),
+                  Gap(gap),
+                  const _TwoCards(),
+                  Gap(gap),
+                  const _FriendReferralBanner(),
+                  Gap(gap),
+                  const _ThreeFeatureCards(),
+                  Gap(ResponsiveLayout.homeListBottomSpace(context)),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -74,7 +151,7 @@ class _TopBar extends StatelessWidget {
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
         left: 4,
-        right: 16,
+        right: ResponsiveLayout.horizontalPadding(context),
         bottom: 10,
       ),
       child: Row(
@@ -90,12 +167,12 @@ class _TopBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
               'assets/icons/logo.png',
-              width: 34,
-              height: 34,
+              width: (34 * ResponsiveLayout.scale(context)).clamp(28.0, 40.0),
+              height: (34 * ResponsiveLayout.scale(context)).clamp(28.0, 40.0),
               fit: BoxFit.cover,
             ),
           ),
-          const Gap(10),
+          Gap(10 * ResponsiveLayout.scale(context)),
           Expanded(
             child: Text(
               '일등대리',
@@ -185,7 +262,10 @@ class _NoticeRowState extends State<_NoticeRow> {
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/notice'),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: EdgeInsets.symmetric(
+            horizontal: (16 * ResponsiveLayout.scale(context)).clamp(12.0, 20.0),
+            vertical: 9,
+          ),
           child: Row(
             children: [
               Container(
@@ -249,12 +329,15 @@ class _NoticeRowState extends State<_NoticeRow> {
 // ── 접수 방법 선택 헤더 ───────────────────────────────────────────────────────
 
 class _MethodSelectRow extends StatelessWidget {
-  const _MethodSelectRow();
+  const _MethodSelectRow({required this.mileageBalance, required this.loaded});
+
+  final int mileageBalance;
+  final bool loaded;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -281,7 +364,7 @@ class _MethodSelectRow extends StatelessWidget {
                 Icon(Icons.stars_rounded, size: 14, color: AppTheme.accentBlue),
                 const Gap(4),
                 Text(
-                  'M 10,000원',
+                  loaded ? 'M ${formatKrw(mileageBalance)}원' : 'M -',
                   style: TextStyle(
                     color: AppTheme.accentBlue,
                     fontWeight: FontWeight.w700,
@@ -304,8 +387,10 @@ class _MainAppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = ResponsiveLayout.scale(context);
+    final hPad = ResponsiveLayout.horizontalPadding(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: hPad),
       child: InkWell(
         onTap: () => Navigator.push(
           context,
@@ -314,7 +399,7 @@ class _MainAppCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all((24 * scale).clamp(18.0, 28.0)),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
@@ -393,26 +478,26 @@ class _MainAppCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Gap(20),
-              const Text(
+              Gap(20 * scale),
+              Text(
                 '빠르고 안전한 대리운전',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: (22 * scale).clamp(18.0, 26.0),
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                 ),
               ),
-              const Gap(6),
+              Gap(6 * scale),
               Text(
                 '지금 바로 출발지를 설정하고\n가까운 기사님을 배정받으세요.',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13,
+                  fontSize: (13 * scale).clamp(12.0, 15.0),
                   height: 1.5,
                 ),
               ),
-              const Gap(20),
+              Gap(20 * scale),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
@@ -458,7 +543,7 @@ class _TwoCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: Row(
         children: [
           Expanded(
@@ -470,7 +555,7 @@ class _TwoCards extends StatelessWidget {
               onTap: () => showPhoneCallModal(context),
             ),
           ),
-          const Gap(12),
+          Gap(12 * ResponsiveLayout.scale(context)),
           Expanded(
             child: _SmallCard(
               icon: PhosphorIconsRegular.plant,
@@ -579,14 +664,15 @@ class _FriendReferralBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = ResponsiveLayout.scale(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, '/referrer-status'),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all((18 * scale).clamp(14.0, 22.0)),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
@@ -692,8 +778,9 @@ class _ThreeFeatureCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = 10 * ResponsiveLayout.scale(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: Row(
         children: [
           Expanded(
@@ -704,7 +791,7 @@ class _ThreeFeatureCards extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/ride-history'),
             ),
           ),
-          const Gap(10),
+          Gap(g),
           Expanded(
             child: _FeatureCard(
               icon: PhosphorIconsRegular.userPlus,
@@ -713,7 +800,7 @@ class _ThreeFeatureCards extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/referrer-status'),
             ),
           ),
-          const Gap(10),
+          Gap(g),
           Expanded(
             child: _FeatureCard(
               icon: PhosphorIconsRegular.wallet,
@@ -801,6 +888,48 @@ class _BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = ResponsiveLayout.isCompactWidth(context);
+    final padBottom = MediaQuery.paddingOf(context).bottom;
+    final row = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _NavItem(
+          icon: PhosphorIconsRegular.megaphone,
+          label: '공지사항',
+          route: '/notice',
+          color: const Color(0xFFE53935),
+          compact: compact,
+        ),
+        _NavItem(
+          icon: PhosphorIconsRegular.wallet,
+          label: '출금신청',
+          route: '/withdrawal',
+          color: const Color(0xFF1E88E5),
+          compact: compact,
+        ),
+        _NavItem(
+          icon: PhosphorIconsRegular.chatCircle,
+          label: '문의하기',
+          route: '/qa',
+          color: const Color(0xFF43A047),
+          compact: compact,
+        ),
+        _NavItem(
+          icon: PhosphorIconsRegular.creditCard,
+          label: '카드등록',
+          route: '/card',
+          color: const Color(0xFF1E88E5),
+          compact: compact,
+        ),
+        _NavItem(
+          icon: PhosphorIconsRegular.ticket,
+          label: '이벤트',
+          route: '/event',
+          color: const Color(0xFFF9A825),
+          compact: compact,
+        ),
+      ],
+    );
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -813,45 +942,14 @@ class _BottomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom,
-        top: 6,
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavItem(
-            icon: PhosphorIconsRegular.megaphone,
-            label: '공지사항',
-            route: '/notice',
-            color: Color(0xFFE53935),
-          ),
-          _NavItem(
-            icon: PhosphorIconsRegular.wallet,
-            label: '출금신청',
-            route: '/withdrawal',
-            color: Color(0xFF1E88E5),
-          ),
-          _NavItem(
-            icon: PhosphorIconsRegular.chatCircle,
-            label: '문의하기',
-            route: '/qa',
-            color: Color(0xFF43A047),
-          ),
-          _NavItem(
-            icon: PhosphorIconsRegular.creditCard,
-            label: '카드등록',
-            route: '/card',
-            color: Color(0xFF1E88E5),
-          ),
-          _NavItem(
-            icon: PhosphorIconsRegular.ticket,
-            label: '이벤트',
-            route: '/event',
-            color: Color(0xFFF9A825),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.only(bottom: padBottom, top: 6),
+      child: ResponsiveLayout.isCompactWidth(context)
+          ? FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: row,
+            )
+          : row,
     );
   }
 }
@@ -862,36 +960,44 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.route,
     this.color = AppTheme.primaryDark,
+    this.compact = false,
   });
 
   final IconData icon;
   final String label;
   final String route;
   final Color color;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final hPad = compact ? 4.0 : 12.0;
+    final iconBg = compact ? 5.0 : 7.0;
+    final iconSize = compact ? 18.0 : 20.0;
+    final labelSize = compact ? 9.0 : 10.0;
     return InkWell(
       onTap: () => Navigator.pushNamed(context, route),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: compact ? 6 : 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: EdgeInsets.all(iconBg),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: PhosphorIcon(icon, size: 20, color: color),
+              child: PhosphorIcon(icon, size: iconSize, color: color),
             ),
-            const Gap(4),
+            Gap(compact ? 2 : 4),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 10,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: labelSize,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.primaryDark,
               ),

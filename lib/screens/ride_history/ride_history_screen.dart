@@ -3,24 +3,93 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../api/rides_api.dart';
+import '../../models/ride.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/user_friendly_text.dart';
 
-class RideHistoryScreen extends StatelessWidget {
+class RideHistoryScreen extends StatefulWidget {
   const RideHistoryScreen({super.key});
+
+  @override
+  State<RideHistoryScreen> createState() => _RideHistoryScreenState();
+}
+
+class _RideHistoryScreenState extends State<RideHistoryScreen>
+    with WidgetsBindingObserver {
+  List<Ride> _items = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _load(silent: true);
+    }
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final list = await RidesApi.list();
+      if (!mounted) return;
+      setState(() {
+        _items = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = toFriendlyError(e, fallback: '이용내역을 불러오지 못했습니다.');
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.surfaceGrey,
       appBar: AppBar(title: const Text('이용내역')),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _InfoCard(count: 0),
-          const _ReceiptBanner(),
-          const Expanded(child: _EmptyState()),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _ErrorState(message: _error!, onRetry: _load)
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    children: [
+                      _InfoCard(count: _items.length),
+                      const _ReceiptBanner(),
+                      if (_items.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 40),
+                          child: _EmptyState(),
+                        )
+                      else
+                        ..._items.map((r) => _RideItem(ride: r)),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
     );
   }
 }
@@ -166,5 +235,88 @@ class _EmptyState extends StatelessWidget {
         ],
       ),
     ).animate().fadeIn(duration: 500.ms, delay: 200.ms).scale(begin: const Offset(0.95, 0.95), curve: Curves.easeOut);
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PhosphorIcon(
+              PhosphorIconsRegular.warning,
+              size: 40,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RideItem extends StatelessWidget {
+  const _RideItem({required this.ride});
+
+  final Ride ride;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = formatDateShort(ride.date);
+    final time = ride.time.trim();
+    final when = time.isEmpty ? date : '$date $time';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderGrey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 16, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Text(when, style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text(
+                '${formatKrw(ride.total)}원',
+                style: const TextStyle(
+                  color: AppTheme.primaryDark,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('출발: ${ride.pickup}', style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 3),
+          Text('도착: ${ride.dropoff}', style: const TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
   }
 }

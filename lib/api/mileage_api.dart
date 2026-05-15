@@ -8,9 +8,37 @@ class MileageApi {
     final res = await ApiClient.get('/users/me/mileage');
     final map = res.data as Map<String, dynamic>?;
     final data = map?['data'] as Map<String, dynamic>? ?? map ?? {};
+
+    int pickInt(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toInt();
+      if (v is String) {
+        // allow "10,000" style strings
+        final cleaned = v.replaceAll(',', '').trim();
+        return int.tryParse(cleaned) ?? 0;
+      }
+      return 0;
+    }
+
+    // Be tolerant to backend field naming differences between admin/web/app.
+    // Common candidates: balance, mileageBalance, mileage, points, wallet.balance.
+    final balance = pickInt(
+      data['balance'] ??
+          data['mileageBalance'] ??
+          data['mileage'] ??
+          data['points'] ??
+          (data['wallet'] is Map ? (data['wallet'] as Map)['balance'] : null),
+    );
+
+    final withdrawable = pickInt(
+      data['withdrawable'] ??
+          data['withdrawableBalance'] ??
+          data['withdrawableMileage'] ??
+          balance,
+    );
     return MileageBalance(
-      balance: (data['balance'] as num?)?.toInt() ?? 0,
-      withdrawable: (data['withdrawable'] as num?)?.toInt() ?? 0,
+      balance: balance,
+      withdrawable: withdrawable,
     );
   }
 

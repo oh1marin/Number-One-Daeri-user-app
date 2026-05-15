@@ -1,4 +1,4 @@
-package com.numberonedaeri.app
+package com.numberonedaeri.app1
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

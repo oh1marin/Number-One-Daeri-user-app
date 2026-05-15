@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
+import '../../api/account_api.dart';
 import '../../services/auth_service.dart';
 import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
@@ -16,6 +17,7 @@ class AccountDeleteScreen extends StatefulWidget {
 
 class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
   bool _keepAccount = true;
+  bool _deleting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +110,7 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton(
-                      onPressed: _keepAccount ? null : _confirmDelete,
+                      onPressed: (_keepAccount || _deleting) ? null : _confirmDelete,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFE53935),
                         side: BorderSide(
@@ -116,7 +118,13 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
                         ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('계정삭제', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: _deleting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('계정삭제', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ),
                 ],
@@ -153,13 +161,21 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
         ],
       ),
     );
-    if (ok == true && mounted) {
+    if (ok != true || !mounted || _deleting) return;
+
+    setState(() => _deleting = true);
+    try {
+      await AccountApi.deleteMe();
       await AuthService.logout();
       await OnboardingService.resetOnboarding();
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-        showSuccessSnackBar(context, '계정이 삭제되었습니다.', title: '완료');
-      }
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      showSuccessSnackBar(context, '계정이 삭제되었습니다.', title: '완료');
+    } catch (_) {
+      if (!mounted) return;
+      showErrorSnackBar(context, '계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 }
