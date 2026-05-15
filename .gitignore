@@ -62,3 +62,8 @@ assets/env_defaults.env
 
 # Firebase config (keep out of repo; provide via CI/local)
 /android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+
+# PKCS#12 / 기타 키 자료
+**/*.p12
+**/*.pfx

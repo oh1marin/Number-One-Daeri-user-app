@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.numberonedaeri.app"
+    namespace = "com.numberonedaeri.app1"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,7 +35,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.numberonedaeri.app"
+        applicationId = "com.numberonedaeri.app1"
         // 카카오맵 SDK 요구사양: API 23+, armeabi-v7a/arm64-v8a, OpenGL ES 2.0+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
