@@ -16,6 +16,7 @@
 
 - [개요](#개요)
 - [기능 하이라이트](#기능-하이라이트)
+- [기능 상세 (AI · 1:1 · 기타)](#features-detail)
 - [기술 스택](#기술-스택)
 - [아키텍처](#아키텍처)
 - [프로젝트 구조](#프로젝트-구조)
@@ -47,9 +48,66 @@
 - 홈: 호출 진입, 공지/배너, 친구 추천·마일리지 안내
 - **지도 기반 호출** (Kakao Map SDK)
 - 운행 내역, 마일리지·출금, 카드 등록·결제 (**PortOne** 등)
-- 쿠폰함, 이벤트/광고 피드, 공지·FAQ·1:1 문의·불편신고
-- **FCM** 푸시 · 로컬 알림
+- 쿠폰함, 이벤트/광고 피드, 공지·FAQ·불편신고
+- **AI 상담 · 1:1 문의** (라이브 챗, 상담사 호출, 관리자 답변 폴링) — 아래 [상세](#features-detail)
+- **FCM** 푸시 · 로컬 알림 (문의/QA 타입 시 채팅 화면으로 진입)
 - **보안**: 루트/에뮬/변조 감지, Release 시 **SSL 핀닝** 옵션, 토큰 보관 등
+
+---
+
+<a id="features-detail"></a>
+
+## 기능 상세 (AI · 1:1 · 고객지원 · 기타)
+
+### AI 상담 · 1:1 라이브 챗 (`/qa`)
+
+| 항목 | 구현 요약 |
+|------|-----------|
+| **진입** | 홈 하단 내비 **「문의하기」** (`/qa`) → `QaScreen` → `LiveChatScreen` (`lib/screens/qa/`) |
+| **세션** | `InquiryApi` — 문의 세션 생성·메시지 조회·전송 (백엔드 1:1 파이프라인) |
+| **AI 응답** | `AiChatApi` — `POST /api/v1/ai/chat` 에 `{ "message": "..." }` 전송 후 응답 텍스트 표시 (`lib/api/ai_chat_api.dart`) |
+| **첫 인사** | AI 상담원 인사말 + 요금·쿠폰·마일리지 등 안내 (`live_chat_screen.dart`) |
+| **상담사 호출** | 사용자가 **「상담사 호출」** 시 서버로 호출 요청 메시지 전송 → 이후 **관리자(상담원) 메시지**가 오면 UI를 상담원 모드로 전환(폴링) |
+| **전화 안내** | 상담사 연결·영업시간 등 카피는 화면/폴백 메시지에 포함 (평일 09:00~18:00 등) |
+
+**재사용 위젯** `InquiryForm` (`lib/widgets/inquiry_form.dart`): 문의 생성 + `AiChatApi` 응답 + “담당 상담원 확인 후 답변” 안내를 한 흐름으로 묶을 수 있음.
+
+### 문의 목록 · 관리자 채팅 (대시보드)
+
+| 항목 | 구현 요약 |
+|------|-----------|
+| **진입** | `DashboardScreen`의 **「1:1 문의」** 칩 → `InquiryListScreen` (`/inquiries`, `AppRouter`) |
+| **API** | `AdminInquiryApi` — 문의 목록, 메시지 조회, 답장 전송, 상태 변경 (`pending` / `closed` 등) |
+| **화면** | `AdminChatScreen` — 고객별 스레드에서 운영/상담 측 답변 (같은 저장소 내 **운영·내부용** 플로우) |
+
+> 동일 앱 바이너리에 **고객용 QA**와 **대시보드 문의 처리**가 함께 들어 있습니다. 배포 타깃(고객 전용 vs 내부용)에 따라 메뉴 노출·빌드 분리 정책을 정하면 좋습니다.
+
+### 푸시 · 알림
+
+| 항목 | 구현 요약 |
+|------|-----------|
+| **문의/QA 알림** | `PushNotificationService`에서 payload 타입이 `inquiry` / `qa` 이면 알림 그룹 **`inquiry`** 로 묶고, 탭 시 **`/qa`** 로 이동 |
+| **마일리지** | 적립/차감 제목·본문 조합으로 로컬 알림 |
+| **공지/이벤트** | 제목 폴백 `공지/이벤트` 등 |
+| **설정 화면** | 알림이 **마일리지 입금, 1:1 문의 답변, 기타 이벤트** 등을 포함한다는 설명 문구 (`notification_settings_screen.dart`) |
+
+### 결제 · 인증
+
+| 항목 | 구현 요약 |
+|------|-----------|
+| **카드 / 빌링키** | PortOne + InApp WebView; 카드 등록 시 **100원 인증** 플로우 (`card_register_payment_screen`, `portone_billing_key_webview`) |
+| **생체 결제** | `BiometricPaymentService` — 첫 결제 후 “다음부터 인증 사용” 등 옵션과 연동 |
+
+### 그 외 고객·운영 기능
+
+| 항목 | 구현 요약 |
+|------|-----------|
+| **불편신고** | `ComplaintScreen` |
+| **사고/과태료** | `AccidentPenaltyScreen` — 일부 액션에서 **문의하기(`/qa`)** 로 유도 |
+| **대시보드(운행·고객·기사 등)** | `AppRouter` + `DashboardScreen` — 근태 화면 플레이스홀더, 운행/청구/요금 설정/문의 등 칩 네비 |
+| **계정** | 계정 삭제, 알림 설정(푸시 안내 문구), 온보딩 권한·약관 |
+| **네트워크** | `ConnectivityService` — 연결 상태 감시 |
+| **공유** | 앱 추천 문구 등 `share_plus` (`home_screen`, `referrer_status_screen` 등) |
 
 ---
 
@@ -60,6 +118,7 @@
 | **앱** | Flutter 3.x, Material 3 |
 | **언어** | Dart 3.11+ |
 | **네트워크** | Dio, 인터셉터(토큰·refresh), 타임아웃 |
+| **AI·문의** | `POST …/ai/chat`, `InquiryApi` / `AdminInquiryApi` (1:1 세션·메시지) |
 | **보안·저장** | `flutter_secure_storage`, `local_auth`, `flutter_security_suite`, `encrypt`, Release SSL 핀닝(`connect_secure` + `API_CERT_PIN`) |
 | **환경** | `flutter_dotenv` (`.env` / `assets/env_defaults.env`) |
 | **지도·위치** | `kakao_maps_flutter`, `geolocator` |
