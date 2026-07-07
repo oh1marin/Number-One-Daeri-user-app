@@ -90,7 +90,7 @@ class _InquiryFormState extends State<InquiryForm> {
     _addMessage(_ChatMessage(isAgent: false, text: content, time: _nowTime()));
 
     try {
-      await InquiryApi.create(content: content);
+      await InquiryApi.create(initialMessage: content);
     } catch (_) {}
 
     if (mounted) setState(() => _aiThinking = true);

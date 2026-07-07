@@ -6,7 +6,11 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../api/notices_api.dart';
 import '../../config/media_url.dart';
 import '../../theme/app_theme.dart';
+import '../../services/content_read_store.dart';
+import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../widgets/load_error_view.dart';
 
 class NoticeScreen extends StatefulWidget {
   const NoticeScreen({super.key});
@@ -39,18 +43,19 @@ class _NoticeScreenState extends State<NoticeScreen> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _items = [];
           _loading = false;
-          _error = '공지를 불러올 수 없습니다.';
+          _error = loadErrorMessage(e, fallback: '공지를 불러올 수 없습니다.');
         });
       }
     }
   }
 
   void _showDetail(BuildContext context, Notice notice) {
+    ContentReadStore.markNoticeRead(notice.id);
     final heroUrl =
         resolveMediaUrl(notice.coverImageUrl) ??
         resolveMediaUrl(notice.imageUrl);
@@ -238,7 +243,9 @@ class _NoticeScreenState extends State<NoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConnectivityReconnectListener(
+      onReconnect: _load,
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -266,16 +273,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
               ),
             )
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_error!, style: TextStyle(color: Colors.grey.shade600)),
-                  const Gap(12),
-                  TextButton(onPressed: _load, child: const Text('다시 시도')),
-                ],
-              ),
-            )
+          ? LoadErrorView(message: _error!, onRetry: _load)
           : _items.isEmpty
           ? _EmptyState()
           : RefreshIndicator(
@@ -299,6 +297,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
                 },
               ),
             ),
+    ),
     );
   }
 }

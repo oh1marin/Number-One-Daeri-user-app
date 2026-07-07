@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+
+import '../../api/ads_api.dart';
+import '../../api/events_api.dart';
+import '../../api/notices_api.dart';
+import '../../services/content_read_store.dart';
+import '../../utils/app_share_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../api/mileage_api.dart';
-import '../../api/notices_api.dart';
+import '../../utils/mileage_balance_cache.dart';
 import '../../config/media_url.dart';
 import '../../routes/navigation.dart';
 import '../../theme/app_theme.dart';
@@ -16,7 +21,7 @@ import '../../widgets/phone_call_modal.dart';
 import '../call/call_map_screen.dart';
 
 void _shareAppLink(BuildContext context) {
-  Share.share('일등대리 1668-0001 완전대박! 앱 다운받고 혜택 받아가세요 🚗', subject: '일등대리 앱 추천');
+  Share.share(AppShareText.build(), subject: '일등대리 앱 추천');
 }
 
 /// 홈 화면 (MainScaffold의 body로 사용 - Scaffold 없음)
@@ -33,12 +38,14 @@ class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, RouteAware {
   int _mileageBalance = 0;
   bool _mileageLoaded = false;
+  int _unreadContentCount = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadMileageBalance();
+    _loadUnreadBadge();
   }
 
   @override
@@ -61,18 +68,41 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       _loadMileageBalance();
+      _loadUnreadBadge();
     }
   }
 
   @override
   void didPopNext() {
-    // Returned to HomeScreen via Navigator.pop()
     _loadMileageBalance();
+    _loadUnreadBadge();
   }
 
-  Future<void> _loadMileageBalance() async {
+  Future<void> _loadUnreadBadge() async {
     try {
-      final bal = await MileageApi.getBalance();
+      final results = await Future.wait([
+        NoticesApi.getList(page: 1, limit: 20),
+        EventsApi.getList(),
+        AdsApi.getList(),
+      ]);
+      final notices = results[0] as List<Notice>;
+      final events = results[1] as List<EventItem>;
+      final ads = results[2] as List<AdItem>;
+      final count = await ContentReadStore.totalUnread(
+        noticeIds: notices.map((n) => n.id),
+        eventIds: [
+          ...events.map((e) => e.id),
+          ...ads.map((a) => a.id.isEmpty ? '' : 'ad_${a.id}'),
+        ],
+      );
+      if (!mounted) return;
+      setState(() => _unreadContentCount = count);
+    } catch (_) {}
+  }
+
+  Future<void> _loadMileageBalance({bool force = false}) async {
+    try {
+      final bal = await MileageBalanceCache.getBalance(force: force);
       if (!mounted) return;
       setState(() {
         _mileageBalance = bal.balance;
@@ -88,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final gap = 14.0 * ResponsiveLayout.scale(context);
+    final gap = 10.0 * ResponsiveLayout.homeScale(context);
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
@@ -102,8 +132,8 @@ class _HomeScreenState extends State<HomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _TopBar(onMenuTap: widget.onMenuTap),
-                  _NoticeRow(),
-                  Gap(20 * ResponsiveLayout.scale(context)),
+                  _NoticeRow(unreadCount: _unreadContentCount),
+                  Gap(14 * ResponsiveLayout.homeScale(context)),
                   _MethodSelectRow(
                     mileageBalance: _mileageBalance,
                     loaded: _mileageLoaded,
@@ -152,7 +182,7 @@ class _TopBar extends StatelessWidget {
         top: MediaQuery.of(context).padding.top + 8,
         left: 4,
         right: ResponsiveLayout.horizontalPadding(context),
-        bottom: 10,
+        bottom: 8,
       ),
       child: Row(
         children: [
@@ -167,12 +197,12 @@ class _TopBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
               'assets/icons/logo.png',
-              width: (34 * ResponsiveLayout.scale(context)).clamp(28.0, 40.0),
-              height: (34 * ResponsiveLayout.scale(context)).clamp(28.0, 40.0),
+              width: (34 * ResponsiveLayout.homeScale(context)).clamp(28.0, 40.0),
+              height: (34 * ResponsiveLayout.homeScale(context)).clamp(28.0, 40.0),
               fit: BoxFit.cover,
             ),
           ),
-          Gap(10 * ResponsiveLayout.scale(context)),
+          Gap(10 * ResponsiveLayout.homeScale(context)),
           Expanded(
             child: Text(
               '일등대리',
@@ -184,6 +214,11 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
+          _TopBarAction(
+            icon: PhosphorIconsRegular.info,
+            onTap: () => Navigator.pushNamed(context, '/app-info'),
+          ),
+          const Gap(4),
           _TopBarAction(
             icon: PhosphorIconsRegular.bell,
             onTap: () => Navigator.pushNamed(context, '/notice'),
@@ -220,7 +255,9 @@ class _TopBarAction extends StatelessWidget {
 // ── 공지 띠 ──────────────────────────────────────────────────────────────────
 
 class _NoticeRow extends StatefulWidget {
-  const _NoticeRow();
+  const _NoticeRow({this.unreadCount = 0});
+
+  final int unreadCount;
 
   @override
   State<_NoticeRow> createState() => _NoticeRowState();
@@ -263,25 +300,50 @@ class _NoticeRowState extends State<_NoticeRow> {
         onTap: () => Navigator.pushNamed(context, '/notice'),
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: (16 * ResponsiveLayout.scale(context)).clamp(12.0, 20.0),
+            horizontal: (16 * ResponsiveLayout.homeScale(context)).clamp(12.0, 20.0),
             vertical: 9,
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryDark,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  '공지',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryDark,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      '공지',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
+                  if (widget.unreadCount > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          widget.unreadCount > 9 ? '9+' : '${widget.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               if (thumb != null) ...[
                 const Gap(8),
@@ -387,7 +449,7 @@ class _MainAppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scale = ResponsiveLayout.scale(context);
+    final scale = ResponsiveLayout.homeScale(context);
     final hPad = ResponsiveLayout.horizontalPadding(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: hPad),
@@ -399,7 +461,7 @@ class _MainAppCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           width: double.infinity,
-          padding: EdgeInsets.all((24 * scale).clamp(18.0, 28.0)),
+          padding: EdgeInsets.all((20 * scale).clamp(14.0, 22.0)),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
@@ -478,12 +540,12 @@ class _MainAppCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Gap(20 * scale),
+              Gap(14 * scale),
               Text(
                 '빠르고 안전한 대리운전',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: (22 * scale).clamp(18.0, 26.0),
+                  fontSize: (20 * scale).clamp(16.0, 22.0),
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                 ),
@@ -497,7 +559,7 @@ class _MainAppCard extends StatelessWidget {
                   height: 1.5,
                 ),
               ),
-              Gap(20 * scale),
+              Gap(14 * scale),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
@@ -551,11 +613,11 @@ class _TwoCards extends StatelessWidget {
               icon: PhosphorIconsRegular.phone,
               iconColor: const Color(0xFF4CAF50),
               title: '전화로 부르기',
-              sub: '1668-0001',
+              sub: '010-2184-8822',
               onTap: () => showPhoneCallModal(context),
             ),
           ),
-          Gap(12 * ResponsiveLayout.scale(context)),
+          Gap(12 * ResponsiveLayout.homeScale(context)),
           Expanded(
             child: _SmallCard(
               icon: PhosphorIconsRegular.plant,
@@ -601,7 +663,7 @@ class _SmallCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -664,7 +726,7 @@ class _FriendReferralBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scale = ResponsiveLayout.scale(context);
+    final scale = ResponsiveLayout.homeScale(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: InkWell(
@@ -672,7 +734,7 @@ class _FriendReferralBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          padding: EdgeInsets.all((18 * scale).clamp(14.0, 22.0)),
+          padding: EdgeInsets.all((14 * scale).clamp(12.0, 18.0)),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
@@ -778,7 +840,7 @@ class _ThreeFeatureCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final g = 10 * ResponsiveLayout.scale(context);
+    final g = 10 * ResponsiveLayout.homeScale(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: Row(
@@ -834,7 +896,7 @@ class _FeatureCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -942,7 +1004,7 @@ class _BottomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.only(bottom: padBottom, top: 6),
+      padding: EdgeInsets.only(bottom: padBottom, top: 4),
       child: ResponsiveLayout.isCompactWidth(context)
           ? FittedBox(
               fit: BoxFit.scaleDown,

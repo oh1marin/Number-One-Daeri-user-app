@@ -10,6 +10,7 @@ class Ride {
   final int discount;
   final int extra;
   final int total;
+  final String status;
 
   Ride({
     required this.id,
@@ -23,20 +24,22 @@ class Ride {
     required this.discount,
     required this.extra,
     required this.total,
+    this.status = '',
   });
 
   factory Ride.fromJson(Map<String, dynamic> json) => Ride(
-        id: json['id'] as String,
-        date: json['date'] as String,
-        time: json['time'] as String? ?? '',
+        id: (json['id'] ?? '').toString(),
+        date: json['date']?.toString() ?? '',
+        time: json['time']?.toString() ?? '',
         customerName: json['customerName'] as String? ?? '',
         driverName: json['driverName'] as String? ?? '',
-        pickup: json['pickup'] as String? ?? '',
-        dropoff: json['dropoff'] as String? ?? '',
-        fare: json['fare'] as int? ?? 0,
-        discount: json['discount'] as int? ?? 0,
-        extra: json['extra'] as int? ?? 0,
-        total: json['total'] as int? ?? 0,
+        pickup: (json['pickup'] ?? json['pickupAddress'] ?? json['address'])?.toString() ?? '',
+        dropoff: (json['dropoff'] ?? json['dropoffAddress'] ?? json['destination'])?.toString() ?? '',
+        fare: (json['fare'] as num?)?.toInt() ?? 0,
+        discount: (json['discount'] as num?)?.toInt() ?? 0,
+        extra: (json['extra'] as num?)?.toInt() ?? 0,
+        total: (json['total'] as num?)?.toInt() ?? 0,
+        status: (json['status'] ?? json['rideStatus'] ?? '').toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -51,5 +54,6 @@ class Ride {
         'discount': discount,
         'extra': extra,
         'total': total,
+        'status': status,
       };
 }

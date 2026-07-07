@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../services/app_update_service.dart';
 import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 
 /// 1번 이미지: 접근권한 알림
-class PermissionScreen extends StatelessWidget {
+class PermissionScreen extends StatefulWidget {
   const PermissionScreen({super.key});
+
+  @override
+  State<PermissionScreen> createState() => _PermissionScreenState();
+}
+
+class _PermissionScreenState extends State<PermissionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppUpdateService.promptIfNeeded(context);
+    });
+  }
 
   Future<void> _requestPermission(Permission permission) async {
     await permission.request();
@@ -49,16 +63,6 @@ class PermissionScreen extends StatelessWidget {
                     _PermissionItem(
                       label: '전화',
                       onTap: () => _requestPermission(Permission.phone),
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionItem(
-                      label: '저장공간',
-                      onTap: () => _requestPermission(Permission.storage),
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionItem(
-                      label: '마이크',
-                      onTap: () => _requestPermission(Permission.microphone),
                     ),
                   ],
                 ),

@@ -28,4 +28,9 @@ class TokenStorage {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
   }
+
+  /// 계정 삭제 등 — secure storage 전체 삭제
+  static Future<void> deleteAll() async {
+    await _storage.deleteAll();
+  }
 }

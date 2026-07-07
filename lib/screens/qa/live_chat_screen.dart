@@ -60,7 +60,7 @@ class LiveChatScreen extends StatefulWidget {
   State<LiveChatScreen> createState() => _LiveChatScreenState();
 }
 
-class _LiveChatScreenState extends State<LiveChatScreen> {
+class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObserver {
   final _msgCtrl  = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _focusNode  = FocusNode();
@@ -78,16 +78,42 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
   bool _agentRequested  = false; // 상담사 호출 여부
 
   Timer? _pollTimer;
+  static const _pollInterval = Duration(seconds: 8);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
-  void dispose() {
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+      _fetchAdminMessages();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _stopPolling();
+    }
+  }
+
+  void _startPolling() {
+    if (_closed || _session == null) return;
     _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _fetchAdminMessages());
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPolling();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     _focusNode.dispose();
@@ -123,9 +149,9 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
 
     setState(() => _initializing = false);
 
-    // 4초 폴링 시작 (관리자 답장 감지)
     if (!_closed) {
-      _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _fetchAdminMessages());
+      _startPolling();
+      _fetchAdminMessages(initial: true);
     }
   }
 
@@ -138,27 +164,28 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       final msgs = await InquiryApi.getMessages(id);
       if (!mounted) return;
 
-      bool added = false;
+      final incoming = <_Msg>[];
+      var agentMode = _agentRequested;
       for (final m in msgs) {
         if (_backendIds.contains(m.id)) continue;
         _backendIds.add(m.id);
 
-        // 관리자 메시지만 채팅에 추가 (user 메시지는 로컬에서 이미 표시 중)
         if (m.isFromAdmin) {
-          // 폴링 중 새 관리자 답장이 도착할 때만 상담원 모드로 전환
-          // (initial=true 초기 로드 시에는 AI 모드 유지)
-          if (!initial && !_agentRequested) setState(() => _agentRequested = true);
-
-          _addLocal(_Msg(
+          if (!initial && !agentMode) agentMode = true;
+          incoming.add(_Msg(
             id: m.id,
             content: m.content,
             type: _MsgType.admin,
             time: _parseTime(m.createdAt),
           ));
-          added = true;
         }
       }
-      if (added) _scrollToBottom();
+      if (incoming.isEmpty) return;
+      setState(() {
+        if (!initial) _agentRequested = agentMode;
+        _messages.addAll(incoming);
+      });
+      _scrollToBottom();
     } catch (_) {}
   }
 

@@ -133,7 +133,7 @@ class _PhoneCallModalContentState extends State<_PhoneCallModalContent> {
                 color: Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text('1668-0001', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('010-2184-8822', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
           Expanded(
@@ -153,7 +153,7 @@ class _PhoneCallModalContentState extends State<_PhoneCallModalContent> {
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                     const SizedBox(height: 4),
-                    Text('연락처 : 16680001', style: TextStyle(color: Colors.grey.shade700)),
+                    Text('연락처 : 01021848822', style: TextStyle(color: Colors.grey.shade700)),
                     const SizedBox(height: 16),
                     Text(
                       '상기 위치로 대리운전 서비스를 이용하시겠습니까?',

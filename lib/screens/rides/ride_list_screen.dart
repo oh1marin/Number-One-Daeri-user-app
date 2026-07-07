@@ -64,7 +64,7 @@ class _RideListScreenState extends State<RideListScreen> {
                         title: Text('${r.date} ${r.time}'),
                         subtitle: Text(
                             '${r.pickup} → ${r.dropoff} | ${r.total}원'),
-                        trailing: Text(r.driverName),
+                        trailing: Text(r.status),
                       );
                     },
                   ),

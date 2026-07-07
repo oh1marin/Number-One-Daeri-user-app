@@ -6,13 +6,11 @@ class RidesApi {
 
   static Future<List<Ride>> list({
     String? date,
-    String? driverName,
     String? field,
     String? q,
   }) async {
     final params = <String, dynamic>{};
     if (date != null) params['date'] = date;
-    if (driverName != null) params['driverName'] = driverName;
     if (field != null) params['field'] = field;
     if (q != null) params['q'] = q;
     final res = await ApiClient.get(_base, queryParameters: params.isEmpty ? null : params);

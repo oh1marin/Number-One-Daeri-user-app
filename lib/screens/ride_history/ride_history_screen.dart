@@ -41,6 +41,17 @@ class _RideHistoryScreenState extends State<RideHistoryScreen>
     }
   }
 
+  void _recallRide(Ride ride) {
+    Navigator.pushNamed(
+      context,
+      '/call-map',
+      arguments: {
+        'pickup': ride.pickup,
+        'dropoff': ride.dropoff,
+      },
+    );
+  }
+
   Future<void> _load({bool silent = false}) async {
     if (!silent) {
       setState(() {
@@ -85,7 +96,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen>
                           child: _EmptyState(),
                         )
                       else
-                        ..._items.map((r) => _RideItem(ride: r)),
+                        ..._items.map((r) => _RideItem(ride: r, onRecall: _recallRide)),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -276,9 +287,10 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _RideItem extends StatelessWidget {
-  const _RideItem({required this.ride});
+  const _RideItem({required this.ride, required this.onRecall});
 
   final Ride ride;
+  final void Function(Ride ride) onRecall;
 
   @override
   Widget build(BuildContext context) {
@@ -312,10 +324,71 @@ class _RideItem extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text('출발: ${ride.pickup}', style: const TextStyle(fontSize: 12)),
+          _RecallLine(
+            label: '출발',
+            address: ride.pickup,
+            onTap: ride.pickup.trim().isEmpty ? null : () => onRecall(ride),
+          ),
           const SizedBox(height: 3),
-          Text('도착: ${ride.dropoff}', style: const TextStyle(fontSize: 12)),
+          _RecallLine(
+            label: '도착',
+            address: ride.dropoff,
+            onTap: ride.dropoff.trim().isEmpty ? null : () => onRecall(ride),
+          ),
+          if (ride.pickup.trim().isNotEmpty && ride.dropoff.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => onRecall(ride),
+                icon: const Icon(Icons.replay_rounded, size: 16),
+                label: const Text('이 경로로 다시 호출'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accentBlue,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _RecallLine extends StatelessWidget {
+  const _RecallLine({
+    required this.label,
+    required this.address,
+    this.onTap,
+  });
+
+  final String label;
+  final String address;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      '$label: $address',
+      style: TextStyle(
+        fontSize: 12,
+        color: onTap != null ? AppTheme.accentBlue : Colors.black87,
+        decoration: onTap != null ? TextDecoration.underline : null,
+      ),
+    );
+    if (onTap == null) return text;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Expanded(child: text),
+            const Icon(Icons.chevron_right, size: 16, color: AppTheme.accentBlue),
+          ],
+        ),
       ),
     );
   }

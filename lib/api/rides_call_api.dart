@@ -1,15 +1,12 @@
 import '../models/call_options.dart';
+import '../models/ride_waypoint.dart';
 import 'api_client.dart';
 import '../utils/idempotency.dart';
 
 /// 대리호출 생성 API
-/// 스펙: POST /rides/call
-/// Body: latitude, longitude, address, addressDetail, phone + paymentMethod + 옵션 + estimatedDistanceKm, estimatedFare, fareType
 class RidesCallApi {
   static const _base = '/rides/call';
 
-  /// paymentMethod: 'cash' | 'mileage' | 'card' | 'kakaopay' | 'tosspay'
-  /// cardId: 등록 카드 결제 시 사용할 카드 ID
   static Future<String?> createCall({
     required double latitude,
     required double longitude,
@@ -23,6 +20,10 @@ class RidesCallApi {
     int? estimatedFare,
     String? fareType,
     String? cardId,
+    double? destinationLatitude,
+    double? destinationLongitude,
+    String? destinationAddress,
+    List<RideWaypoint>? waypoints,
   }) async {
     final body = <String, dynamic>{
       'latitude': latitude,
@@ -51,6 +52,16 @@ class RidesCallApi {
     if (cardId != null && cardId.isNotEmpty) {
       body['cardId'] = cardId;
     }
+    if (destinationLatitude != null && destinationLongitude != null) {
+      body['destinationLatitude'] = destinationLatitude;
+      body['destinationLongitude'] = destinationLongitude;
+    }
+    if (destinationAddress != null && destinationAddress.isNotEmpty) {
+      body['destinationAddress'] = destinationAddress;
+    }
+    if (waypoints != null && waypoints.isNotEmpty) {
+      body['waypoints'] = waypoints.map((w) => w.toJson()).toList();
+    }
     final res = await ApiClient.post(_base, body);
 
     final map = res.data as Map<String, dynamic>?;
@@ -59,4 +70,3 @@ class RidesCallApi {
     return rideId;
   }
 }
-

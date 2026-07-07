@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
 import '../../api/account_api.dart';
+import '../../api/api_client.dart';
 import '../../services/auth_service.dart';
-import '../../services/onboarding_service.dart';
+import '../../services/session_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
 
@@ -164,18 +168,41 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
     if (ok != true || !mounted || _deleting) return;
 
     setState(() => _deleting = true);
+    ApiClient.suppressAuthRecovery = true;
+    var cleared = false;
+    SessionService.markAuthInvalid();
     try {
-      await AccountApi.deleteMe();
-      await AuthService.logout();
-      await OnboardingService.resetOnboarding();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      showSuccessSnackBar(context, '계정이 삭제되었습니다.', title: '완료');
+      try {
+        await AccountApi.deleteMe().timeout(const Duration(seconds: 15));
+      } on DioException catch (e) {
+        if (!SessionService.shouldTreatDeleteAsSuccess(e)) rethrow;
+      } on TimeoutException {
+        // 서버 응답이 없어도 탈퇴 요청은 나갔을 수 있음 → 로컬 세션 정리
+      }
+
+      if (mounted) {
+        showSuccessSnackBar(context, '계정이 삭제되었습니다.', title: '완료');
+      }
+      await SessionService.wipeAllLocalData();
+      cleared = true;
     } catch (_) {
       if (!mounted) return;
       showErrorSnackBar(context, '계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       if (mounted) setState(() => _deleting = false);
+      if (!cleared && mounted) {
+        // 화면에 로딩만 남는 경우 방지
+        final loggedIn = await AuthService.isLoggedIn();
+        if (!loggedIn) {
+          SessionService.markAuthInvalid();
+          SessionService.scheduleOnboardingRedirect();
+        }
+        ApiClient.suppressAuthRecovery = false;
+      } else if (cleared) {
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          ApiClient.suppressAuthRecovery = false;
+        });
+      }
     }
   }
 }

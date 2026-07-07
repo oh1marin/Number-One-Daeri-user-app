@@ -29,6 +29,12 @@ class SecurityService {
     return _kit!;
   }
 
+  /// 릴리즈: 루팅·변조·후킹만 차단 (무결성/에뮬레이터 오탐으로 이탈·1점 리뷰 방지)
+  static bool shouldBlockApp(SecurityCheckResult result) {
+    if (kDebugMode) return !result.secure;
+    return result.isRooted || result.isTampered || result.isRuntimeHooked;
+  }
+
   /// 보안 검사 실행. 위협 감지 시 false 반환
   static Future<SecurityCheckResult> runSecurityCheck() async {
     if (!Platform.isAndroid && !Platform.isIOS) {

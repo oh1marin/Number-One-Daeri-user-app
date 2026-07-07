@@ -3,8 +3,12 @@ import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/mileage_api.dart';
+import '../../utils/mileage_balance_cache.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../widgets/load_error_view.dart';
+import '../../widgets/signup_bonus_mileage_notice.dart';
 
 /// 마일리지 화면 — 순수 마일리지만 표시 (쿠폰 완전 분리)
 class MileageScreen extends StatefulWidget {
@@ -46,8 +50,9 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
+      MileageBalanceCache.invalidate();
       final results = await Future.wait([
-        MileageApi.getBalance(),
+        MileageBalanceCache.getBalance(force: true),
         MileageApi.getHistory(),
       ]);
       if (mounted) {
@@ -61,14 +66,21 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() { _loading = false; _error = '마일리지를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'; });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = loadErrorMessage(e, fallback: '마일리지를 불러오지 못했습니다.');
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConnectivityReconnectListener(
+      onReconnect: _load,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('마일리지'),
         actions: [
@@ -81,45 +93,104 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _ErrorView(error: _error!, onRetry: _load)
+              ? LoadErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      // 마일리지 잔액 카드
-                      _BalanceCard(balance: _balance, withdrawable: _withdrawable, fmt: formatKrw),
-                      const Gap(12),
-
-                      // 쿠폰 분리 안내 배너
-                      _CouponSeparateBanner(),
-                      const Gap(24),
-
-                      // 이용내역 헤더
-                      Row(
-                        children: [
-                          const Text('이용 내역', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppTheme.primaryDark)),
-                          const Spacer(),
-                          Text('쿠폰 제외', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                        ],
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            _BalanceCard(
+                              balance: _balance,
+                              withdrawable: _withdrawable,
+                              fmt: formatKrw,
+                              onGifticonTap: () async {
+                                await Navigator.pushNamed(
+                                  context,
+                                  '/gifticon-shop',
+                                  arguments: _balance,
+                                );
+                                _load();
+                              },
+                            ),
+                            const Gap(12),
+                            const SignupBonusMileageNotice(),
+                            const Gap(12),
+                            _GifticonExchangeBanner(
+                              onTap: () async {
+                                await Navigator.pushNamed(
+                                  context,
+                                  '/gifticon-shop',
+                                  arguments: _balance,
+                                );
+                                _load();
+                              },
+                            ),
+                            const Gap(12),
+                            _CouponSeparateBanner(),
+                            const Gap(24),
+                            Row(
+                              children: [
+                                const Text(
+                                  '이용 내역',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: AppTheme.primaryDark,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '쿠폰 제외',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Gap(12),
+                          ]),
+                        ),
                       ),
-                      const Gap(12),
-
                       if (_history.isEmpty)
-                        _EmptyHistory()
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverToBoxAdapter(child: _EmptyHistory()),
+                        )
                       else
-                        ..._history.map((e) => _TransactionItem(
-                          date: formatDateShort(e.createdAt),
-                          desc: e.description ?? _typeLabel(e.type),
-                          amount: e.amount,
-                          balance: e.balance,
-                          type: e.type,
-                          fmt: formatKrw,
-                        )),
-                      const Gap(40),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final e = _history[index];
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: index < _history.length - 1 ? 8 : 0,
+                                  ),
+                                  child: _TransactionItem(
+                                    date: formatDateShort(e.createdAt),
+                                    desc: e.description ?? _typeLabel(e.type),
+                                    amount: e.amount,
+                                    balance: e.balance,
+                                    type: e.type,
+                                    fmt: formatKrw,
+                                  ),
+                                );
+                              },
+                              childCount: _history.length,
+                            ),
+                          ),
+                        ),
+                      const SliverToBoxAdapter(child: Gap(40)),
                     ],
                   ),
                 ),
+    ),
     );
   }
 
@@ -136,10 +207,16 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
 // ── 잔액 카드 ─────────────────────────────────────────────────────────────────
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.balance, required this.withdrawable, required this.fmt});
+  const _BalanceCard({
+    required this.balance,
+    required this.withdrawable,
+    required this.fmt,
+    this.onGifticonTap,
+  });
   final int balance;
   final int withdrawable;
   final String Function(int) fmt;
+  final VoidCallback? onGifticonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +265,59 @@ class _BalanceCard extends StatelessWidget {
           const Gap(4),
           Text('가입 시 10,000원 / 카드 결제 10% 적립', style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12)),
           const Gap(16),
-          Divider(color: Colors.white.withValues(alpha: 0.15)),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onGifticonTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 18),
+                        Gap(8),
+                        Text(
+                          '기프티콘 교환',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const Gap(10),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/withdrawal'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentYellow,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '출금신청',
+                    style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const Gap(12),
           Row(
             children: [
@@ -200,24 +329,70 @@ class _BalanceCard extends StatelessWidget {
                   Text('${fmt(withdrawable)}원', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                 ],
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/withdrawal'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentYellow,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    '출금신청',
-                    style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 13),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── 기프티콘 교환 배너 ─────────────────────────────────────────────────────────
+
+class _GifticonExchangeBanner extends StatelessWidget {
+  const _GifticonExchangeBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.green.shade50, Colors.teal.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
+            ),
+            const Gap(14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '마일리지 기프티콘 교환몰',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.primaryDark,
+                    ),
+                  ),
+                  const Gap(4),
+                  Text(
+                    '메가MGC커피 · BBQ 치킨 모바일 교환권',
+                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.green.shade700),
+          ],
+        ),
       ),
     );
   }
@@ -243,7 +418,7 @@ class _CouponSeparateBanner extends StatelessWidget {
             const Gap(10),
             Expanded(
               child: Text(
-                '쿠폰(스타벅스, 치킨 등)은 마일리지와 별도로 쿠폰함에서 확인할 수 있어요.',
+                '이벤트·추천 등으로 받은 쿠폰은 쿠폰함에서 확인할 수 있어요.',
                 style: TextStyle(fontSize: 12, color: Colors.amber.shade800, height: 1.4),
               ),
             ),
@@ -274,33 +449,6 @@ class _EmptyHistory extends StatelessWidget {
           const Gap(12),
           Text('이용 내역이 없습니다.', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
         ],
-      ),
-    );
-  }
-}
-
-// ── 에러 뷰 ───────────────────────────────────────────────────────────────────
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.error, required this.onRetry});
-  final String error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            PhosphorIcon(PhosphorIconsRegular.warning, size: 48, color: Colors.grey.shade400),
-            const Gap(16),
-            Text(error, style: TextStyle(color: Colors.grey.shade600, fontSize: 14), textAlign: TextAlign.center),
-            const Gap(16),
-            ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
-          ],
-        ),
       ),
     );
   }

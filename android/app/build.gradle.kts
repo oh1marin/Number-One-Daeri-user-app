@@ -10,6 +10,7 @@ plugins {
 // Firebase (FCM) - only apply when google-services.json exists
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -19,7 +20,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.numberonedaeri.app1"
+    namespace = "com.numberonedaeri.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -35,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.numberonedaeri.app1"
+        applicationId = "com.numberonedaeri.app"
         // 카카오맵 SDK 요구사양: API 23+, armeabi-v7a/arm64-v8a, OpenGL ES 2.0+
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
@@ -66,13 +67,19 @@ android {
         release {
             signingConfig =
                 signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
-            // minifyEnabled true 시 proguard-rules.pro 사용 (카카오맵 규칙 포함)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.activity:activity-ktx:1.9.3")
 }
 
 flutter {

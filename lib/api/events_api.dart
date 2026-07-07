@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/default_notices_content.dart';
 import 'api_client.dart';
 
 /// 이벤트 API
@@ -8,8 +9,17 @@ import 'api_client.dart';
 /// GET /events
 /// Response (문서 기준): [{ "id", "title", "imageUrl", "startAt", "endAt", "url" }]
 class EventsApi {
-  // apiBaseUrl ends with `/api/v1/`, so avoid leading slash to prevent `//events`.
   static const _path = 'events';
+  static const _cacheTtl = Duration(minutes: 5);
+  static const _maxExtraPages = 5;
+
+  static List<EventItem>? _cached;
+  static DateTime? _cachedAt;
+
+  static void invalidateCache() {
+    _cached = null;
+    _cachedAt = null;
+  }
 
   /// 응답 body에서 EventItem 리스트를 파싱한다.
   static List<EventItem> _parse(dynamic body) {
@@ -29,12 +39,34 @@ class EventsApi {
     return [];
   }
 
-  /// GET /events 를 여러 파라미터 조합으로 반복 호출해서 이벤트 목록을 모아 반환한다.
+  static Future<List<EventItem>> _fetchPage({
+    required int page,
+    required int limit,
+  }) async {
+    final res = await ApiClient.get(_path, queryParameters: {
+      'page': page.toString(),
+      'limit': limit.toString(),
+      'take': limit.toString(),
+      'per_page': limit.toString(),
+      'pageSize': limit.toString(),
+      'size': limit.toString(),
+      'offset': ((page - 1) * limit).toString(),
+      'skip': ((page - 1) * limit).toString(),
+    });
+    return _parse(res.data);
+  }
+
+  /// 이벤트 목록 (메모리 캐시 + 최대 6회 API 호출).
   ///
-  /// 백엔드가 어떤 페이지네이션 파라미터를 쓰는지 모르기 때문에:
-  ///  1) 첫 번째 호출: limit/take/perPage 등 모든 변형 파라미터를 동시에 전송 → 한 번에 전부 가져오길 기대.
-  ///  2) 1건 이하로 오면: skip/offset/page 를 1씩 늘리면서 최대 50번 추가 호출, 새 이벤트가 없으면 중단.
-  static Future<List<EventItem>> getList() async {
+  /// 백엔드 스펙 변경 없이: 1차 limit=100, 부족할 때만 page 2~6 추가 시도.
+  static Future<List<EventItem>> getList({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cached != null &&
+        _cachedAt != null &&
+        DateTime.now().difference(_cachedAt!) < _cacheTtl) {
+      return List<EventItem>.from(_cached!);
+    }
+
     final seen = <String>{};
     final all = <EventItem>[];
 
@@ -46,63 +78,47 @@ class EventsApi {
       }
     }
 
-    // ── 1차 호출: 한 번에 전부 ─────────────────────────────────────────────
+    const firstLimit = 100;
+
     try {
-      final res = await ApiClient.get(_path, queryParameters: {
-        'limit': '100',
-        'take': '100',
-        'per_page': '100',
-        'pageSize': '100',
-        'size': '100',
-        'page': '1',
-        'offset': '0',
-        'skip': '0',
-      });
-      debugPrint('[EventsApi] requestUri=${res.requestOptions.uri}');
-      debugPrint('[EventsApi] raw body type=${res.data.runtimeType}');
-      final items = _parse(res.data);
-      debugPrint('[EventsApi] 1차 호출 count=${items.length}');
+      final items = await _fetchPage(page: 1, limit: firstLimit);
+      debugPrint('[EventsApi] page=1 count=${items.length}');
       absorb(items);
-    } on DioException catch (e) {
-      debugPrint('[EventsApi] 1차 호출 실패: status=${e.response?.statusCode}');
-    }
 
-    // 2건 이상이면 완료
-    if (all.length > 1) {
-      debugPrint('[EventsApi] 최종 이벤트 수=${all.length}');
-      return all;
-    }
-
-    // ── 2차 ~ N차 호출: skip 기반 페이지네이션 ────────────────────────────
-    for (int idx = 1; idx <= 49; idx++) {
-      try {
-        final res = await ApiClient.get(_path, queryParameters: {
-          'page': '${idx + 1}',
-          'limit': '1',
-          'take': '1',
-          'offset': '$idx',
-          'skip': '$idx',
-        });
-        final items = _parse(res.data);
-        if (items.isEmpty) {
-          debugPrint('[EventsApi] skip=$idx 에서 빈 응답, 페이지네이션 종료');
-          break;
+      if (items.length >= firstLimit) {
+        for (var page = 2; page <= _maxExtraPages + 1; page++) {
+          final more = await _fetchPage(page: page, limit: firstLimit);
+          if (more.isEmpty) break;
+          final before = all.length;
+          absorb(more);
+          if (all.length == before) break;
         }
-        final before = all.length;
-        absorb(items);
-        if (all.length == before) {
-          debugPrint('[EventsApi] skip=$idx 에서 중복 응답, 페이지네이션 종료');
-          break;
+      } else if (all.length <= 1) {
+        for (var page = 2; page <= _maxExtraPages + 1; page++) {
+          final more = await _fetchPage(page: page, limit: 20);
+          if (more.isEmpty) break;
+          final before = all.length;
+          absorb(more);
+          if (all.length == before) break;
         }
-      } on DioException {
-        break;
       }
+    } on DioException catch (e) {
+      debugPrint('[EventsApi] fetch failed: status=${e.response?.statusCode}');
+      if (_cached != null) return List<EventItem>.from(_cached!);
+      return DefaultNoticesContent.events;
     }
 
-    debugPrint('[EventsApi] 최종 이벤트 수=${all.length}');
-    for (final e in all.take(5)) {
-      debugPrint('[EventsApi]  └ id=${e.id} title="${e.title}"');
+    debugPrint('[EventsApi] final count=${all.length}');
+    if (all.isEmpty) {
+      final fallback = DefaultNoticesContent.events;
+      debugPrint('[EventsApi] empty — using ${fallback.length} default events');
+      _cached = fallback;
+      _cachedAt = DateTime.now();
+      return fallback;
     }
+
+    _cached = all;
+    _cachedAt = DateTime.now();
     return all;
   }
 }
@@ -175,4 +191,3 @@ class EventItem {
     return '';
   }
 }
-

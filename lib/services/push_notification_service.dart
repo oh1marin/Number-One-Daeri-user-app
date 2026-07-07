@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -95,7 +96,8 @@ class PushNotificationService {
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) return;
     try {
-      await PushTokensApi.upsert(token: token, platform: 'android');
+      final platform = Platform.isIOS ? 'ios' : 'android';
+      await PushTokensApi.upsert(token: token, platform: platform);
     } catch (_) {}
   }
 
@@ -295,11 +297,11 @@ class PushNotificationService {
         return '가까운 기사님께 배차를 요청하고 있어요.$suffix';
       case 'assigned':
       case 'accepted':
-        return '${who}배정되었습니다. 출발 준비를 해주세요.$suffix';
+        return '$who배정되었습니다. 출발 준비를 해주세요.$suffix';
       case 'arriving':
-        return '${who}출발지로 이동 중입니다.$suffix';
+        return '$who출발지로 이동 중입니다.$suffix';
       case 'arrived_pickup':
-        return '${who}출발지에 도착했습니다. 만나서 출발해 주세요.$suffix';
+        return '$who출발지에 도착했습니다. 만나서 출발해 주세요.$suffix';
       case 'picked_up':
       case 'on_trip':
         return '운행이 시작되었습니다. 안전 운행하세요.$suffix';

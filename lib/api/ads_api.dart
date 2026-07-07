@@ -11,8 +11,24 @@ import 'api_client.dart';
 class AdsApi {
   // apiBaseUrl ends with `/api/v1/`, so avoid leading slash to prevent `//ads`.
   static const _path = 'ads';
+  static const _cacheTtl = Duration(minutes: 5);
 
-  static Future<List<AdItem>> getList() async {
+  static List<AdItem>? _cached;
+  static DateTime? _cachedAt;
+
+  static void invalidateCache() {
+    _cached = null;
+    _cachedAt = null;
+  }
+
+  static Future<List<AdItem>> getList({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _cached != null &&
+        _cachedAt != null &&
+        DateTime.now().difference(_cachedAt!) < _cacheTtl) {
+      return List<AdItem>.from(_cached!);
+    }
+
     try {
       final res = await ApiClient.get(_path);
       final data = res.data;
@@ -32,16 +48,21 @@ class AdsApi {
         if (list.isNotEmpty) {
           debugPrint('[AdsApi] first ad id=${list.first.id} content="${list.first.content}"');
         }
+        _cached = list;
+        _cachedAt = DateTime.now();
         return list;
       }
 
       if (raw is Map<String, dynamic>) {
         final items = raw['items'];
         if (items is List) {
-          return items
+          final list = items
               .whereType<Map<String, dynamic>>()
               .map(AdItem.fromJson)
               .toList();
+          _cached = list;
+          _cachedAt = DateTime.now();
+          return list;
         }
 
         // If backend returns a single ad object (not a list),
@@ -53,13 +74,19 @@ class AdsApi {
         if (hasAdFields) {
           final ad = AdItem.fromJson(raw);
           debugPrint('[AdsApi] GET /ads single ad id=${ad.id} content="${ad.content}"');
-          return [ad];
+          final single = [ad];
+          _cached = single;
+          _cachedAt = DateTime.now();
+          return single;
         }
       }
 
+      _cached = const [];
+      _cachedAt = DateTime.now();
       return [];
     } on DioException catch (e) {
       debugPrint('[AdsApi] GET /ads failed: status=${e.response?.statusCode}, data=${e.response?.data}');
+      if (_cached != null) return List<AdItem>.from(_cached!);
       return [];
     }
   }

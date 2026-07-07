@@ -1,10 +1,11 @@
-/// 쿠폰 `code`(예: STARBUCKS_5000)를 사용자에게 보여줄 짧은 제목으로 바꿉니다.
+/// 쿠폰 `code`(예: MEGA_2000)를 사용자에게 보여줄 짧은 제목으로 바꿉니다.
 class CouponDisplay {
   CouponDisplay._();
 
   static const Map<String, String> _brandByToken = {
-    'STARBUCKS': '스타벅스',
-    'STARBUCK': '스타벅스',
+    'STARBUCKS': '메가MGC커피',
+    'STARBUCK': '메가MGC커피',
+    'STAR': '메가MGC커피',
     'KYOCHON': '교촌치킨',
     'KYOCHONCHICKEN': '교촌치킨',
     'BBQ': 'BBQ',
@@ -18,8 +19,9 @@ class CouponDisplay {
     'BR': '배스킨라빈스',
     'TWOSOME': '투썸플레이스',
     'TWOSOMEPLACE': '투썸플레이스',
-    'MEGA': '메가커피',
-    'MEGACOFFEE': '메가커피',
+    'MEGA': '메가MGC커피',
+    'MEGACOFFEE': '메가MGC커피',
+    'MEGAMGC': '메가MGC커피',
     'COMPOSE': '컴포즈커피',
     'COMPOSECOFFEE': '컴포즈커피',
     'GIFT': '기프트',
@@ -34,7 +36,7 @@ class CouponDisplay {
     final parts = code.split('_').where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '쿠폰';
 
-    // 끝이 금액처럼 보이는 숫자 토큰이면 제거 (STARBUCKS_5000)
+    // 끝이 금액처럼 보이는 숫자 토큰이면 제거 (MEGA_2000)
     while (parts.length > 1 && int.tryParse(parts.last) != null) {
       parts.removeLast();
     }

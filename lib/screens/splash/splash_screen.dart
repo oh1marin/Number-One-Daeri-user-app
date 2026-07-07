@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../services/auth_service.dart';
 import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/system_ui_config.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,22 +22,39 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigate() async {
     // 애니메이션(2.4s)과 온보딩 체크를 동시에 실행, 둘 다 끝나야 이동
+    Future<T> withTimeout<T>(Future<T> future, T fallback) => future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fallback,
+        );
+
     final results = await Future.wait([
-      Future.delayed(const Duration(milliseconds: 2400)),
-      OnboardingService.isOnboardingComplete(),
+      Future.delayed(const Duration(milliseconds: 900)),
+      withTimeout(OnboardingService.isOnboardingComplete(), false),
+      withTimeout(AuthService.isLoggedIn(), false),
     ]);
 
     if (!mounted) return;
 
     final isComplete = results[1] as bool;
+    final loggedIn = results[2] as bool;
+
+    if (!loggedIn) {
+      Navigator.pushReplacementNamed(
+        context,
+        isComplete ? '/logged-out' : '/permission',
+      );
+      return;
+    }
+
     Navigator.pushReplacementNamed(context, isComplete ? '/home' : '/permission');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.primaryDark,
-      body: Stack(
+    return SystemUiDarkBackground(
+      child: Scaffold(
+        backgroundColor: AppTheme.primaryDark,
+        body: Stack(
         children: [
           // 배경 그라데이션
           Positioned.fill(
@@ -124,7 +143,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                   child: const Text(
-                    '1668-0001',
+                    '010-2184-8822',
                     style: TextStyle(
                       color: AppTheme.accentYellow,
                       fontSize: 15,
@@ -156,7 +175,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
           // 하단 로딩 인디케이터
           Positioned(
-            bottom: 60,
+            bottom: 60 + MediaQuery.paddingOf(context).bottom,
             left: 0,
             right: 0,
             child: Column(
@@ -176,6 +195,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

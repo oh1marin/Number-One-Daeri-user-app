@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../api/ads_api.dart';
 import '../../api/events_api.dart';
+import '../../services/content_read_store.dart';
 import '../../config/media_url.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_network_image.dart';
@@ -38,8 +39,12 @@ class _EventScreenState extends State<EventScreen> {
     _future = _load();
   }
 
-  Future<_EventPageData> _load() async {
-    final results = await Future.wait([AdsApi.getList(), EventsApi.getList()]);
+  Future<_EventPageData> _load({bool forceRefresh = false}) async {
+    if (forceRefresh) AdsApi.invalidateCache();
+    final results = await Future.wait([
+      AdsApi.getList(forceRefresh: forceRefresh),
+      EventsApi.getList(forceRefresh: forceRefresh),
+    ]);
 
     final ads = results[0] as List<AdItem>;
     final events = results[1] as List<EventItem>;
@@ -62,7 +67,7 @@ class _EventScreenState extends State<EventScreen> {
 
   Future<void> _refresh() async {
     setState(() {
-      _future = _load();
+      _future = _load(forceRefresh: true);
     });
   }
 
@@ -131,11 +136,21 @@ class _EventScreenState extends State<EventScreen> {
                   child: switch (item) {
                     _FeedItemAd(:final ad) => _PromoAdCard(
                       ad: ad,
-                      onOpen: () => _openUrl(ad.linkUrl),
+                      onOpen: () {
+                        if (ad.id.isNotEmpty) {
+                          ContentReadStore.markEventRead('ad_${ad.id}');
+                        }
+                        _openUrl(ad.linkUrl);
+                      },
                     ),
                     _FeedItemEvent(:final event) => _EventCard(
                       event: event,
-                      onTap: () => _openUrl(event.url),
+                      onTap: () {
+                        if (event.id.isNotEmpty) {
+                          ContentReadStore.markEventRead(event.id);
+                        }
+                        _openUrl(event.url);
+                      },
                     ),
                   },
                 );

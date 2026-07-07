@@ -1,9 +1,27 @@
 import 'package:dio/dio.dart';
 
+import '../services/session_service.dart';
+import 'toss_billing_errors.dart';
+
+/// API/화면 로드 실패 메시지 (catch 블록 공통)
+String loadErrorMessage(
+  Object error, {
+  String fallback = '요청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+}) =>
+    toFriendlyError(error, fallback: fallback);
+
 String toFriendlyError(Object error, {String fallback = '요청 처리 중 문제가 발생했습니다.'}) {
   if (error is DioException) {
     final status = error.response?.statusCode;
     final data = error.response?.data;
+
+    final billingMsg = tossBillingErrorMessage(error);
+    if (billingMsg != null) return billingMsg;
+
+    if (SessionService.shouldSuppressAuthError(status)) {
+      return '';
+    }
+
     String? serverMessage;
     if (data is Map<String, dynamic>) {
       serverMessage = (data['message'] ?? data['error'])?.toString();
@@ -14,7 +32,10 @@ String toFriendlyError(Object error, {String fallback = '요청 처리 중 문�
     if (status == 401) return '로그인이 만료되었습니다. 다시 로그인해 주세요.';
     if (status == 403) return '접근 권한이 없습니다.';
     if (status == 404) return '요청한 정보를 찾을 수 없습니다.';
-    if (status != null && status >= 500) return '서버가 불안정합니다. 잠시 후 다시 시도해 주세요.';
+
+    if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+      return serverMessage.trim();
+    }
 
     if (error.type == DioExceptionType.connectionError ||
         error.type == DioExceptionType.connectionTimeout ||
@@ -23,8 +44,8 @@ String toFriendlyError(Object error, {String fallback = '요청 처리 중 문�
       return '네트워크 연결이 원활하지 않습니다. 인터넷 상태를 확인해 주세요.';
     }
 
-    if (serverMessage != null && serverMessage.trim().isNotEmpty) {
-      return serverMessage.trim();
+    if (status != null && status >= 500) {
+      return '서버가 불안정합니다. 잠시 후 다시 시도해 주세요.';
     }
   }
 

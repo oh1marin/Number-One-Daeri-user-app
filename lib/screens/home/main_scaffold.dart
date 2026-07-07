@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../services/auth_service.dart';
+import '../../services/app_update_service.dart';
 import '../../theme/app_theme.dart';
 import 'home_screen.dart';
 
@@ -15,6 +17,14 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppUpdateService.promptIfNeeded(context);
+    });
+  }
 
   void openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
@@ -56,6 +66,7 @@ class _AppDrawer extends StatelessWidget {
       _DrawerItem(icon: PhosphorIconsRegular.flag,        label: '불편신고',       route: '/complaint'),
     ]),
     _DrawerSection(title: '설정', items: [
+      _DrawerItem(icon: PhosphorIconsRegular.info,        label: '앱 정보',        route: '/app-info'),
       _DrawerItem(icon: PhosphorIconsRegular.bell,        label: '알림설정',       route: '/notification-settings'),
       _DrawerItem(icon: PhosphorIconsRegular.trash,       label: '계정삭제',       route: '/account-delete'),
     ]),
@@ -92,7 +103,7 @@ class _AppDrawer extends StatelessWidget {
                         style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '1668-0001',
+                        '010-2184-8822',
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
                       ),
                     ],
@@ -111,10 +122,48 @@ class _AppDrawer extends StatelessWidget {
               ),
             ),
 
-            // 하단 앱 버전
             Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
+            ListTile(
+              leading: PhosphorIcon(
+                PhosphorIconsRegular.signOut,
+                color: Colors.white.withValues(alpha: 0.85),
+                size: 20,
+              ),
+              title: const Text(
+                '로그아웃',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                await AuthService.logout();
+              },
+            ),
+            ListTile(
+              leading: PhosphorIcon(
+                PhosphorIconsRegular.info,
+                color: Colors.white.withValues(alpha: 0.85),
+                size: 20,
+              ),
+              title: const Text(
+                '앱 정보 · 고객센터',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                '010-2184-8822 · 약관/개인정보',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
+              ),
+              trailing: PhosphorIcon(
+                PhosphorIconsRegular.caretRight,
+                color: Colors.white.withValues(alpha: 0.25),
+                size: 14,
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/app-info');
+              },
+            ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Text(
                 '일등대리 ⓒ 2026',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11),

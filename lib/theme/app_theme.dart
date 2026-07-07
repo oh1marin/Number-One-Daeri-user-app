@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import 'system_ui_config.dart';
 
 /// 일등대리 앱 테마 — 라이트 화이트 계열
 /// - 다크 네이비: #0D1B48 (primaryDark)
@@ -32,10 +33,7 @@ class AppTheme {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: false,
-          systemOverlayStyle: SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-          ),
+          systemOverlayStyle: SystemUiConfig.overlayLight,
           titleTextStyle: TextStyle(
             color: primaryDark,
             fontSize: 17,

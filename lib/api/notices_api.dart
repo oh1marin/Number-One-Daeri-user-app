@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/default_notices_content.dart';
 import 'api_client.dart';
 
 /// 공지사항 API (공개, 인증 불필요할 수 있음)
@@ -48,16 +49,22 @@ class NoticesApi {
         queryParameters: {'page': page.toString(), 'limit': limit.toString()},
       );
       final parsed = _itemsFromPayload(res.data);
-      if (parsed != null) return parsed;
+      if (parsed != null && parsed.isNotEmpty) return parsed;
+      if (parsed != null && parsed.isEmpty) {
+        if (kDebugMode) {
+          debugPrint('[NoticesApi] empty list — using default notices');
+        }
+        return DefaultNoticesContent.notices;
+      }
       if (kDebugMode) {
         debugPrint('[NoticesApi] unexpected shape: ${res.data.runtimeType}');
       }
-      return [];
+      return DefaultNoticesContent.notices;
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('[NoticesApi] GET notices failed: $e\n$st');
       }
-      return [];
+      return DefaultNoticesContent.notices;
     }
   }
 }

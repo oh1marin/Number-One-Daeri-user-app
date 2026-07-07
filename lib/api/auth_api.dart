@@ -80,7 +80,7 @@ class AuthApi {
       return ApiResponse.fromJson(map ?? {}, (d) => d as Map<String, dynamic>);
     } on DioException catch (e) {
       _logDioError('AuthApi.sendPhoneOtp', e);
-      return ApiResponse(success: false, data: null, error: e.message ?? '${e.type}');
+      return ApiResponse(success: false, data: null, error: _errorFromDio(e));
     } catch (e) {
       debugPrint('[AuthApi] sendPhoneOtp error=$e');
       return ApiResponse(success: false, data: null, error: e.toString());
@@ -113,7 +113,8 @@ class AuthApi {
       );
     } on DioException catch (e) {
       _logDioError('AuthApi.verifyPhoneOtp', e);
-      return ApiResponse(success: false, data: null, error: e.message ?? '${e.type}');
+      final serverError = _errorFromDio(e);
+      return ApiResponse(success: false, data: null, error: serverError);
     } catch (e) {
       debugPrint('[AuthApi] verifyPhoneOtp error=$e');
       return ApiResponse(success: false, data: null, error: e.toString());
@@ -141,6 +142,17 @@ class AuthApi {
     } catch (e) {
       return (false, e.toString());
     }
+  }
+
+  static String _errorFromDio(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final err = data['error'] ?? data['message'];
+      if (err != null && err.toString().trim().isNotEmpty) {
+        return err.toString();
+      }
+    }
+    return e.message ?? '${e.type}';
   }
 
   static Future<ApiResponse<Admin>> me() async {

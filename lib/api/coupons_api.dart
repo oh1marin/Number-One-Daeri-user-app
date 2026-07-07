@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../utils/coupon_display.dart';
 import 'api_client.dart';
@@ -8,15 +9,15 @@ class CouponsApi {
   /// 테스트용 더미 쿠폰 — 실제 배포 시 제거
   static List<UserCoupon> get _mockCoupons => [
     UserCoupon(
-      id: 'mock_starbucks_01',
-      code: 'STAR_MOCK_01',
-      name: '스타벅스 아메리카노 Tall',
-      amount: 5500,
+      id: 'mock_mega_01',
+      code: 'MEGA_MOCK_01',
+      name: '메가MGC커피 아이스 아메리카노',
+      amount: 2000,
       validUntil: '2026-06-30T00:00:00Z',
       receivedAt: '2026-04-01T00:00:00Z',
       usedAt: null,
       status: 'active',
-      brand: CouponBrand.starbucks,
+      brand: CouponBrand.mega,
     ),
     UserCoupon(
       id: 'mock_chicken_01',
@@ -30,15 +31,15 @@ class CouponsApi {
       brand: CouponBrand.chicken,
     ),
     UserCoupon(
-      id: 'mock_starbucks_02',
-      code: 'STAR_MOCK_02',
-      name: '스타벅스 케이크 교환권',
-      amount: 8500,
+      id: 'mock_mega_02',
+      code: 'MEGA_MOCK_02',
+      name: '메가MGC커피 아이스 아메리카노',
+      amount: 2000,
       validUntil: '2026-05-15T00:00:00Z',
       receivedAt: '2026-03-20T00:00:00Z',
       usedAt: null,
       status: 'pending_delivery',
-      brand: CouponBrand.starbucks,
+      brand: CouponBrand.mega,
     ),
     UserCoupon(
       id: 'mock_cu_01',
@@ -86,17 +87,17 @@ class CouponsApi {
           real = d.whereType<Map<String, dynamic>>().map(UserCoupon.fromJson).toList();
         }
       }
-      // TODO: 테스트 완료 후 아래 줄 제거
-      return [..._mockCoupons, ...real];
+      if (kDebugMode) return [..._mockCoupons, ...real];
+      return real;
     } on DioException catch (_) {
-      return _mockCoupons;
+      return kDebugMode ? _mockCoupons : [];
     }
   }
 }
 
 /// 쿠폰 종류 — 마일리지와 완전히 분리된 실물 상품형 쿠폰
 enum CouponBrand {
-  starbucks,   // 스타벅스
+  mega,        // 메가MGC커피
   chicken,     // 치킨 (교촌, BBQ 등)
   convenience, // 편의점 (CU, GS25)
   giftcard,    // 상품권
@@ -154,8 +155,13 @@ class UserCoupon {
     final name = (json['name'] ?? json['title'] ?? json['label'] ?? json['displayName'] ?? '').toString().toLowerCase();
 
     CouponBrand brand;
-    if (typeRaw.contains('star') || name.contains('스타벅스') || code.contains('STAR')) {
-      brand = CouponBrand.starbucks;
+    if (typeRaw.contains('mega') ||
+        name.contains('메가') ||
+        code.contains('MEGA') ||
+        typeRaw.contains('star') ||
+        name.contains('스타벅스') ||
+        code.contains('STAR')) {
+      brand = CouponBrand.mega;
     } else if (typeRaw.contains('chicken') || name.contains('치킨') || code.contains('CHICKEN') || code.contains('KYOCHON')) {
       brand = CouponBrand.chicken;
     } else if (typeRaw.contains('convenience') || name.contains('편의점') || code.contains('CU') || code.contains('GS')) {

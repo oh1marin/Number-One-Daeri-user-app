@@ -10,6 +10,15 @@ abstract final class ResponsiveLayout {
     return (w / _refWidth).clamp(0.85, 1.12);
   }
 
+  /// 홈 화면 전용 — 한 화면에 더 많이 보이도록 약간 축소.
+  static double homeScale(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    final h = MediaQuery.sizeOf(context).height;
+    final widthFactor = (w / _refWidth).clamp(0.82, 1.0);
+    final heightFactor = h < 700 ? 0.88 : (h < 760 ? 0.92 : 0.96);
+    return (widthFactor * heightFactor).clamp(0.78, 0.96);
+  }
+
   /// Horizontal inset for page sections (home cards, banners, etc.).
   static double horizontalPadding(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
@@ -28,7 +37,7 @@ abstract final class ResponsiveLayout {
   /// Trailing space in primary scroll views so last cards don’t feel clipped.
   static double homeListBottomSpace(BuildContext context) {
     final h = MediaQuery.sizeOf(context).height;
-    return (h * 0.035).clamp(24.0, 56.0);
+    return (h * 0.02).clamp(12.0, 32.0);
   }
 
   static bool isCompactWidth(BuildContext context) =>

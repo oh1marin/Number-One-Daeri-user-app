@@ -1,9 +1,6 @@
 import 'api_client.dart';
 
-/// 예상 요금 산정 API
-/// 스펙: POST /rides/estimate
-/// Body: originLatitude, originLongitude, destinationLatitude, destinationLongitude
-/// Response: { success, data: { distanceKm, fares: { normal, fast, premium } } }
+/// 예상 요금 산정 API (경유지 포함)
 class RidesEstimateApi {
   static const _path = '/rides/estimate';
 
@@ -12,12 +9,14 @@ class RidesEstimateApi {
     required double originLongitude,
     required double destinationLatitude,
     required double destinationLongitude,
+    List<Map<String, dynamic>>? waypoints,
   }) async {
-    final body = {
+    final body = <String, dynamic>{
       'originLatitude': originLatitude,
       'originLongitude': originLongitude,
       'destinationLatitude': destinationLatitude,
       'destinationLongitude': destinationLongitude,
+      if (waypoints != null && waypoints.isNotEmpty) 'waypoints': waypoints,
     };
     final res = await ApiClient.post(_path, body);
 
@@ -34,6 +33,7 @@ class RidesEstimateApi {
       normal: (fares['normal'] as num?)?.toInt() ?? 0,
       fast: (fares['fast'] as num?)?.toInt() ?? 0,
       premium: (fares['premium'] as num?)?.toInt() ?? 0,
+      waypointCount: (data['waypointCount'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -44,10 +44,12 @@ class EstimateResult {
     required this.normal,
     required this.fast,
     required this.premium,
+    this.waypointCount = 0,
   });
 
   final double distanceKm;
   final int normal;
   final int fast;
   final int premium;
+  final int waypointCount;
 }

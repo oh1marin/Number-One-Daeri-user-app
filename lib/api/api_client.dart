@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../config/api_config.dart';
 import '../services/auth_service.dart';
+import '../services/session_service.dart';
 
 class ApiClient {
   ApiClient._();
@@ -17,9 +18,25 @@ class ApiClient {
   /// refresh 실패 시 호출 (로그인 화면 이동 등)
   static void Function()? onAuthRequired;
 
+  /// logout/계정삭제 중 401 재시도·재귀 logout 방지
+  static bool suppressAuthRecovery = false;
+
+  static Future<bool>? _refreshFuture;
+
   static bool _isRefreshRequest(RequestOptions opts) {
     final path = opts.uri.path;
     return path.contains('auth/refresh') || path.contains('/refresh');
+  }
+
+  static bool _isAuthPhoneRequest(RequestOptions opts) {
+    final path = opts.uri.path;
+    return path.contains('auth/phone');
+  }
+
+  static Future<void> _handleSessionInvalid({
+    required bool accountDeleted,
+  }) async {
+    await SessionService.handleUnauthorized(accountDeleted: accountDeleted);
   }
 
   static void init() {
@@ -32,12 +49,10 @@ class ApiClient {
 
     if (!_loggedBaseUrl) {
       _loggedBaseUrl = true;
-      // debugPrint는 release에서 출력이 제한될 수 있어 print 사용
       // ignore: avoid_print
       print('[ApiClient] baseUrl=${_dio.options.baseUrl}');
     }
 
-    // Release 모드 + 인증서 핀닝 설정 시 MITM 방지
     if (kReleaseMode) {
       final pin = dotenv.env['API_CERT_PIN']?.trim();
       if (pin != null && pin.isNotEmpty) {
@@ -68,24 +83,40 @@ class ApiClient {
           print(
             '[ApiClient] error status=$status url=${error.requestOptions.uri} msg=${error.message}',
           );
-          if (error.response?.statusCode != 401) {
+
+          if (SessionService.isAuthInvalid && (status == 401 || status == 403)) {
             return handler.next(error);
           }
 
-          // refresh 요청이 401이면 재시도 금지 → 즉시 실패
+          final accountDeleted =
+              SessionService.errorIndicatesAccountDeleted(error);
+
+          if (!suppressAuthRecovery && accountDeleted) {
+            await _handleSessionInvalid(accountDeleted: true);
+            return handler.next(error);
+          }
+
+          if (status != 401) {
+            return handler.next(error);
+          }
+
+          if (suppressAuthRecovery || _isAuthPhoneRequest(error.requestOptions)) {
+            return handler.next(error);
+          }
+
           if (_isRefreshRequest(error.requestOptions)) {
-            debugPrint('[ApiClient] refresh 401 → 토큰 삭제, 로그인 필요');
-            await AuthService.logout();
-            onAuthRequired?.call();
+            debugPrint('[ApiClient] refresh 401 → 세션 삭제');
+            await _handleSessionInvalid(accountDeleted: accountDeleted);
             return handler.next(error);
           }
 
           try {
-            final refreshed = await AuthService.refreshToken();
+            final refreshed = await _refreshOnce();
             if (refreshed) {
               final token = await AuthService.getAccessToken();
               if (token != null) {
-                error.requestOptions.headers['Authorization'] = 'Bearer $token';
+                error.requestOptions.headers['Authorization'] =
+                    'Bearer $token';
                 final response = await _dio.fetch(error.requestOptions);
                 return handler.resolve(response);
               }
@@ -94,13 +125,23 @@ class ApiClient {
             debugPrint('[ApiClient] refresh 실패');
           }
 
-          // refresh 실패 → 토큰 삭제, 에러 전파
-          await AuthService.logout();
-          onAuthRequired?.call();
+          await _handleSessionInvalid(accountDeleted: accountDeleted);
           return handler.next(error);
         },
       ),
     );
+  }
+
+  static Future<bool> _refreshOnce() async {
+    if (_refreshFuture != null) {
+      return _refreshFuture!;
+    }
+    _refreshFuture = AuthService.refreshToken();
+    try {
+      return await _refreshFuture!;
+    } finally {
+      _refreshFuture = null;
+    }
   }
 
   static void setToken(String? token) {
@@ -122,11 +163,17 @@ class ApiClient {
     String path, {
     dynamic data,
     Map<String, dynamic>? headers,
+    Duration? sendTimeout,
+    Duration? receiveTimeout,
   }) =>
       _dio.post<T>(
         path,
         data: data,
-        options: headers == null ? null : Options(headers: headers),
+        options: Options(
+          headers: headers,
+          sendTimeout: sendTimeout,
+          receiveTimeout: receiveTimeout,
+        ),
       );
 
   static Future<Response<T>> put<T>(String path, [dynamic data]) =>

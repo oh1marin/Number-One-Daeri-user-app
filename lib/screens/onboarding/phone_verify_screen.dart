@@ -4,14 +4,18 @@ import 'package:gap/gap.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/auth_api.dart';
+import '../../config/review_auth_config.dart';
 import '../../services/auth_service.dart';
 import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
 
-/// 본인인증 - 전화번호 + OTP (앱 로그인)
+/// 본인인증 - 전화번호 + OTP (가입·로그인)
 class PhoneVerifyScreen extends StatefulWidget {
-  const PhoneVerifyScreen({super.key});
+  const PhoneVerifyScreen({super.key, this.isLogin = false});
+
+  /// 로그아웃 후 재로그인 진입이면 true
+  final bool isLogin;
 
   @override
   State<PhoneVerifyScreen> createState() => _PhoneVerifyScreenState();
@@ -22,9 +26,24 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
   final _codeController = TextEditingController();
   bool _sendLoading = false;
   bool _verifyLoading = false;
+  bool _showReviewHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.addListener(_onPhoneChanged);
+  }
+
+  void _onPhoneChanged() {
+    final show = ReviewAuthConfig.isReviewMasterPhone(_phoneController.text);
+    if (show != _showReviewHint && mounted) {
+      setState(() => _showReviewHint = show);
+    }
+  }
 
   @override
   void dispose() {
+    _phoneController.removeListener(_onPhoneChanged);
     _phoneController.dispose();
     _codeController.dispose();
     super.dispose();
@@ -48,9 +67,19 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
   }
 
   Future<void> _requestOtp() async {
-    final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final phone = ReviewAuthConfig.normalizePhone(_phoneController.text);
     if (phone.length < 10) {
       showWarningSnackBar(context, '전화번호를 확인해주세요.', title: '확인');
+      return;
+    }
+    if (ReviewAuthConfig.isReviewMasterPhone(phone)) {
+      if (mounted) {
+        showSuccessSnackBar(
+          context,
+          '테스트 계정입니다. 인증번호 ${ReviewAuthConfig.masterOtp} 입력 후 확인하세요. (SMS 불필요)',
+          title: '테스트 로그인',
+        );
+      }
       return;
     }
     if (_sendLoading) return;
@@ -72,7 +101,7 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
   }
 
   Future<void> _verifyAndSignup() async {
-    final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final phone = ReviewAuthConfig.normalizePhone(_phoneController.text);
     final code = _codeController.text.trim();
     if (phone.length < 10) {
       showWarningSnackBar(context, '전화번호를 확인해주세요.', title: '확인');
@@ -95,11 +124,16 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
             refreshToken: refreshToken,
           );
           if (mounted) {
-            // Go to referrer onboarding (blue hero + input).
-            Navigator.of(context).pushReplacementNamed(
-              '/referrer',
-              arguments: true,
-            );
+            final onboardingDone = await OnboardingService.isOnboardingComplete();
+            if (!mounted) return;
+            if (onboardingDone) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            } else {
+              Navigator.of(context).pushReplacementNamed(
+                '/referrer',
+                arguments: true,
+              );
+            }
           }
         } else {
           showErrorSnackBar(context, '인증 오류');
@@ -128,7 +162,10 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
           children: [
             PhosphorIcon(PhosphorIconsRegular.shieldCheck, color: AppTheme.accentBlue, size: 24),
             const Gap(8),
-            const Text('본인인증', style: TextStyle(color: Colors.black87)),
+            Text(
+              widget.isLogin ? '로그인' : '본인인증',
+              style: const TextStyle(color: Colors.black87),
+            ),
           ],
         ),
       ),
@@ -137,7 +174,7 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SelfVerifyCard(),
+            _SelfVerifyCard(isLogin: widget.isLogin),
             const Gap(24),
             _Step1Section(
               controller: _phoneController,
@@ -150,8 +187,12 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
               loading: _verifyLoading,
               onVerify: _verifyAndSignup,
             ),
+            if (_showReviewHint) ...[
+              const Gap(16),
+              _ReviewLoginHint(),
+            ],
             const Gap(24),
-            _InfoBox(),
+            _InfoBox(showReviewHint: _showReviewHint),
           ],
         ),
       ),
@@ -160,6 +201,10 @@ class _PhoneVerifyScreenState extends State<PhoneVerifyScreen> {
 }
 
 class _SelfVerifyCard extends StatelessWidget {
+  const _SelfVerifyCard({required this.isLogin});
+
+  final bool isLogin;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -186,13 +231,15 @@ class _SelfVerifyCard extends StatelessWidget {
             ],
           ),
           const Gap(16),
-          const Text(
-            '본인 인증',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            isLogin ? '전화번호 로그인' : '본인 인증',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Gap(8),
           Text(
-            '서비스 이용을 위해 아래에서 본인인증이 필요합니다.',
+            isLogin
+                ? '가입한 전화번호로 SMS 인증번호를 받아 로그인하세요.'
+                : '서비스 이용을 위해 아래에서 본인인증이 필요합니다.',
             style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             textAlign: TextAlign.center,
           ),
@@ -346,7 +393,39 @@ class _StepBadge extends StatelessWidget {
   }
 }
 
+class _ReviewLoginHint extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F4FD),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PhosphorIcon(PhosphorIconsRegular.sealCheck, color: AppTheme.accentBlue, size: 22),
+          const Gap(10),
+          Expanded(
+            child: Text(
+              '테스트 계정: 인증번호 ${ReviewAuthConfig.masterOtp} 입력 후 '
+              '「인증 확인」만 누르면 됩니다. (SMS 발송 불필요)',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoBox extends StatelessWidget {
+  const _InfoBox({this.showReviewHint = false});
+
+  final bool showReviewHint;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -366,12 +445,16 @@ class _InfoBox extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '① 휴대폰번호 입력 후 인증번호 요청을 누르세요.',
+                  showReviewHint
+                      ? '① 테스트 번호는 SMS 없이 ②에서 바로 인증 가능합니다.'
+                      : '① 휴대폰번호 입력 후 인증번호 요청을 누르세요.',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
                 ),
                 const Gap(6),
                 Text(
-                  '② 문자로 도착한 인증번호를 입력 후 인증 확인을 누르세요.',
+                  showReviewHint
+                      ? '② 인증번호 ${ReviewAuthConfig.masterOtp} 입력 → 인증 확인.'
+                      : '② 문자로 도착한 인증번호를 입력 후 인증 확인을 누르세요.',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
                 ),
               ],

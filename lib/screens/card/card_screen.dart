@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../api/cards_api.dart';
-import '../../config/portone_config.dart';
 import '../../services/biometric_payment_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
+import '../../utils/user_friendly_text.dart';
+import '../../utils/payment_guard.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../widgets/load_error_view.dart';
 import 'card_register_payment_screen.dart';
 
-/// 카드등록 - GET /cards, POST /cards (cardToken 필요), DELETE /cards/:id
-/// cardToken은 PG(PortOne 등) 연동 시 발급
+/// 카드등록 - GET /cards, POST /cards (cardToken=토스 빌링키), DELETE /cards/:id
 class CardScreen extends StatefulWidget {
   const CardScreen({super.key});
 
@@ -19,6 +21,7 @@ class CardScreen extends StatefulWidget {
 class _CardScreenState extends State<CardScreen> {
   List<RegisteredCard> _cards = [];
   bool _loading = true;
+  String? _loadError;
   bool _biometricSupported = false;
   bool _useBiometric = false;
   final _cardNameController = TextEditingController();
@@ -41,7 +44,10 @@ class _CardScreenState extends State<CardScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final list = await CardsApi.getList();
       final bioSupported = await BiometricPaymentService.isSupported;
@@ -54,13 +60,14 @@ class _CardScreenState extends State<CardScreen> {
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _cards = [];
           _biometricSupported = false;
           _useBiometric = false;
           _loading = false;
+          _loadError = loadErrorMessage(e, fallback: '카드 목록을 불러오지 못했습니다.');
         });
       }
     }
@@ -73,49 +80,30 @@ class _CardScreenState extends State<CardScreen> {
       return;
     }
 
-    if (!isPortoneConfigured) {
-      showErrorSnackBar(
-        context,
-        'PG 설정이 필요합니다.\ndocs/CARD_REGISTRATION.md 참고 → portone_config.dart에 storeId, channelKey 입력',
-      );
-      return;
-    }
-
     final expiry = _expiryController.text.trim();
     final option = _optionController.text.trim();
+
+    if (!await ensurePaymentAvailable(context)) return;
 
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (_) => CardRegisterPaymentScreen(
-          cardName: cardName,
-          expiryDate: expiry,
-          option: option,
-        ),
+        builder: (_) => const CardRegisterPaymentScreen(),
       ),
     );
 
     if (result == null || !mounted) return;
 
     final billingKey = result['billingKey'] as String?;
-    final txId = result['transactionId'] as String?;
-    final cardToken = (billingKey != null && billingKey.isNotEmpty)
-        ? billingKey
-        : txId;
+    final issuedCardName = result['cardName'] as String?;
+    final cardToken = billingKey?.trim();
     if (cardToken == null || cardToken.isEmpty) return;
-
-    if (billingKey == null || billingKey.isEmpty) {
-      debugPrint(
-        '[CardScreen] billingKey 없음 - transactionId 사용. '
-        '등록 카드 결제 실패 가능. PortOne 채널 빌링키 발급 옵션 확인 필요.',
-      );
-    }
 
     setState(() => _isRegistering = true);
     try {
       await CardsApi.register(
         cardToken: cardToken,
-        cardName: cardName,
+        cardName: cardName.isNotEmpty ? cardName : (issuedCardName ?? '등록카드'),
         expiryDate: expiry.isNotEmpty ? expiry : null,
         option: option.isNotEmpty ? option : null,
       );
@@ -128,7 +116,10 @@ class _CardScreenState extends State<CardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorSnackBar(context, '카드 등록 실패. 백엔드 연동 확인 필요.');
+        showErrorSnackBar(
+          context,
+          loadErrorMessage(e, fallback: '카드 등록에 실패했습니다.'),
+        );
       }
     } finally {
       if (mounted) setState(() => _isRegistering = false);
@@ -158,8 +149,13 @@ class _CardScreenState extends State<CardScreen> {
         showSuccessSnackBar(context, '카드가 삭제되었습니다.');
         _load();
       }
-    } catch (_) {
-      if (mounted) showErrorSnackBar(context, '삭제에 실패했습니다.');
+    } catch (e) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          loadErrorMessage(e, fallback: '카드 삭제에 실패했습니다.'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isRegistering = false);
     }
@@ -167,7 +163,9 @@ class _CardScreenState extends State<CardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConnectivityReconnectListener(
+      onReconnect: _load,
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -176,7 +174,9 @@ class _CardScreenState extends State<CardScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : _loadError != null
+              ? LoadErrorView(message: _loadError!, onRetry: _load)
+              : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,6 +292,7 @@ class _CardScreenState extends State<CardScreen> {
                 ],
               ),
             ),
+    ),
     );
   }
 }

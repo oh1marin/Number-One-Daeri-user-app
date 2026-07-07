@@ -50,7 +50,7 @@ class _ReferrerScreenState extends State<ReferrerScreen> {
     try {
       final res = await ReferralApi.register(referrerPhone: phone);
       if (res.success && mounted) {
-        showSuccessSnackBar(context, '추천인 등록 완료 (10,000원)', title: '등록 완료');
+        showSuccessSnackBar(context, '추천인 등록이 완료되었습니다.', title: '등록 완료');
         if (widget.isOnboarding) await _goNext();
       } else if (mounted) {
         showErrorSnackBar(context, res.error ?? '등록 실패');
@@ -148,7 +148,7 @@ class _HeroSection extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            '추천받고',
+            '나를 추천해 준 분',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.95),
               fontSize: 18,
@@ -157,19 +157,19 @@ class _HeroSection extends StatelessWidget {
           ),
           const Gap(8),
           const Text(
-            '10,000원',
+            '추천인 등록',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 36,
+              fontSize: 32,
               fontWeight: FontWeight.bold,
               letterSpacing: -1,
             ),
           ),
           Text(
-            '받기',
+            '가입 후 언제든 1명만 등록',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.95),
-              fontSize: 18,
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -187,9 +187,9 @@ class _BidirectionalBenefitCard extends StatelessWidget {
       children: [
         Expanded(
           child: _BenefitPill(
-            label: '추천받은 사람',
-            amount: '10,000원',
-            sub: '가입 시',
+            label: '가입 보너스',
+            amount: '10,000P',
+            sub: '대리 전용·추천 무관',
           ),
         ),
         Padding(
@@ -299,7 +299,7 @@ class _InputSection extends StatelessWidget {
             icon: loading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : PhosphorIcon(PhosphorIconsRegular.paperPlaneTilt, color: Colors.white, size: 20),
-            label: Text(loading ? '등록 중...' : '등록하고 10,000원 받기'),
+            label: Text(loading ? '등록 중...' : '추천인 등록하기'),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.accentBlue,
               foregroundColor: Colors.white,
@@ -331,7 +331,9 @@ class _InfoBox extends StatelessWidget {
           const Gap(12),
           const Expanded(
             child: Text(
-              '나에게 알려준 분의 전화번호를 입력하세요. 자세한 혜택은 추천인 현황에서 확인할 수 있습니다.',
+              '나를 추천해 준 분의 전화번호를 입력하세요.\n'
+              '가입 10,000P는 추천과 무관하며 대리 호출에만 사용됩니다.\n'
+              '추천인 등록은 가입 후 기한 없이 1명만 가능합니다.',
               style: TextStyle(color: Colors.black87, fontSize: 13, height: 1.5),
             ),
           ),

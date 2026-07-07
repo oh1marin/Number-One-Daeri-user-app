@@ -6,6 +6,14 @@ import '../../api/mileage_api.dart';
 import '../../api/withdrawal_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
+import '../../utils/user_friendly_text.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../widgets/load_error_view.dart';
+
+const int kWithdrawalMin = 20000;
+const int kWithdrawalMax = 1000000;
+const int kWithdrawalStep = 10000;
+const int kWithdrawalFee = 500;
 
 const List<String> _kBanks = [
   '국민', '신한', '우리', '하나', '농협', '기업',
@@ -27,6 +35,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
   int _balance = 0;
   int _withdrawable = 0;
   bool _loadingBalance = true;
+  String? _balanceError;
 
   // 폼
   final _amountCtrl = TextEditingController();
@@ -51,7 +60,10 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
   }
 
   Future<void> _loadBalance() async {
-    // 폼은 즉시 표시 — 잔액 카드만 로딩 상태로 시작
+    setState(() {
+      _loadingBalance = true;
+      _balanceError = null;
+    });
     try {
       final bal = await MileageApi.getBalance()
           .timeout(const Duration(seconds: 8));
@@ -62,9 +74,13 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
           _loadingBalance = false;
         });
       }
-    } catch (_) {
-      // 타임아웃·네트워크 오류 → 잔액 0으로 폼 표시
-      if (mounted) setState(() => _loadingBalance = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingBalance = false;
+          _balanceError = loadErrorMessage(e, fallback: '잔액을 불러오지 못했습니다.');
+        });
+      }
     }
   }
 
@@ -73,17 +89,41 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
         (m) => '${m[1]},',
       );
 
+  /// 보유 마일리지와 1회 최대 100만원 중 작은 값
+  int get _maxRequestableAmount {
+    if (_balance <= 0) return 0;
+    return _balance > kWithdrawalMax ? kWithdrawalMax : _balance;
+  }
+
   void _fillAll() {
-    final rounded = (_withdrawable ~/ 10000) * 10000;
-    _amountCtrl.text = rounded > 0 ? rounded.toString() : '';
+    final max = _maxRequestableAmount;
+    final rounded = (max ~/ kWithdrawalStep) * kWithdrawalStep;
+    _amountCtrl.text = rounded >= kWithdrawalMin ? rounded.toString() : '';
+    setState(() {});
+  }
+
+  String? _validateAmount(int amountRaw) {
+    if (amountRaw <= 0) return '출금액을 입력하세요.';
+    if (amountRaw < kWithdrawalMin) {
+      return '최소 출금액은 ${_fmt(kWithdrawalMin)}원입니다.';
+    }
+    if (amountRaw % kWithdrawalStep != 0) {
+      return '${_fmt(kWithdrawalStep)}원 단위로 입력하세요.';
+    }
+    if (amountRaw > _balance) {
+      return '보유 마일리지(${_fmt(_balance)}원)를 초과할 수 없습니다.';
+    }
+    if (amountRaw > kWithdrawalMax) {
+      return '1회 최대 출금액은 ${_fmt(kWithdrawalMax)}원입니다.';
+    }
+    return null;
   }
 
   String? _validate() {
     final amountRaw = int.tryParse(_amountCtrl.text.replaceAll(',', ''));
-    if (amountRaw == null || amountRaw <= 0) return '출금액을 입력하세요.';
-    if (amountRaw < 20000) return '최소 출금액은 20,000원입니다.';
-    if (amountRaw % 10000 != 0) return '10,000원 단위로 입력하세요.';
-    if (amountRaw > _withdrawable) return '출금가능액(${_fmt(_withdrawable)}원)을 초과했습니다.';
+    if (amountRaw == null) return '출금액을 입력하세요.';
+    final amountErr = _validateAmount(amountRaw);
+    if (amountErr != null) return amountErr;
     if (_selectedBank == null) return '은행을 선택하세요.';
     if (_accountCtrl.text.trim().isEmpty) return '계좌번호를 입력하세요.';
     if (_holderCtrl.text.trim().isEmpty) return '예금주를 입력하세요.';
@@ -127,9 +167,9 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ConfirmRow('출금액', '${_fmt(amount)}원'),
-                _ConfirmRow('수수료', '500원'),
+                _ConfirmRow('수수료', '${_fmt(kWithdrawalFee)}원'),
                 const Divider(height: 20),
-                _ConfirmRow('실수령액', '${_fmt(amount - 500)}원', bold: true),
+                _ConfirmRow('실수령액', '${_fmt(amount - kWithdrawalFee)}원', bold: true),
                 const Gap(8),
                 _ConfirmRow('은행', _selectedBank!),
                 _ConfirmRow('계좌번호', _accountCtrl.text.trim()),
@@ -151,7 +191,9 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConnectivityReconnectListener(
+      onReconnect: _loadBalance,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -164,14 +206,20 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 잔액 카드
-                  _BalanceCard(
-                    balance: _balance,
-                    withdrawable: _withdrawable,
-                    fmt: _fmt,
-                    onFillAll: _fillAll,
-                    loading: _loadingBalance,
-                  ),
+                  if (_balanceError != null)
+                    LoadErrorView(
+                      message: _balanceError!,
+                      onRetry: _loadBalance,
+                      compact: true,
+                    )
+                  else
+                    _BalanceCard(
+                      balance: _balance,
+                      withdrawable: _withdrawable,
+                      fmt: _fmt,
+                      onFillAll: _fillAll,
+                      loading: _loadingBalance,
+                    ),
                   const Gap(24),
 
                   // 출금액
@@ -181,19 +229,32 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                       Expanded(
                         child: _InputBox(
                           controller: _amountCtrl,
-                          hint: '20,000원 이상, 10,000원 단위',
+                          hint: _loadingBalance
+                              ? '잔액 불러오는 중...'
+                              : '최소 ${_fmt(kWithdrawalMin)}원 · 1만원 단위',
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           suffix: const Text('원'),
+                          onChanged: (_) => setState(() {}),
                         ),
                       ),
                       const Gap(10),
                       OutlinedButton(
-                        onPressed: _fillAll,
+                        onPressed: _loadingBalance || _maxRequestableAmount < kWithdrawalMin
+                            ? null
+                            : _fillAll,
                         child: const Text('전액'),
                       ),
                     ],
                   ),
+                  if (!_loadingBalance) ...[
+                    const Gap(6),
+                    Text(
+                      '출금 가능 최대 ${_fmt(_maxRequestableAmount)}원 '
+                      '(보유 ${_fmt(_balance)}원 · 1회 한도 ${_fmt(kWithdrawalMax)}원)',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
+                    ),
+                  ],
                   const Gap(16),
 
                   // 은행 선택
@@ -234,7 +295,10 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                         const Gap(8),
                         Expanded(
                           child: Text(
-                            '출금액은 20,000원 이상 10,000원 단위로 가능하며,\n출금 시 500원 수수료가 부과됩니다.\n영업일 기준 1~2일 내 처리됩니다.',
+                            '출금액은 ${_fmt(kWithdrawalMin)}원 이상 ${_fmt(kWithdrawalStep)}원 단위이며, '
+                            '보유 마일리지·1회 ${_fmt(kWithdrawalMax)}원을 넘을 수 없습니다.\n'
+                            '출금 시 ${_fmt(kWithdrawalFee)}원 수수료가 부과됩니다.\n'
+                            '영업일 기준 1~2일 내 처리됩니다.',
                             style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.5),
                           ),
                         ),
@@ -267,6 +331,7 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
                 ],
               ),
             ),
+    ),
     );
   }
 }
@@ -359,6 +424,7 @@ class _InputBox extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.suffix,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -366,6 +432,7 @@ class _InputBox extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final Widget? suffix;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +440,7 @@ class _InputBox extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
+      onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),

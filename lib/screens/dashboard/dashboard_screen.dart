@@ -100,9 +100,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         runSpacing: 8,
                         children: [
                           _navChip(context, '고객', Icons.people, AppRouter.customerList),
-                          _navChip(context, '기사', Icons.directions_car, AppRouter.driverList),
                           _navChip(context, '운행', Icons.route, AppRouter.rideList),
-                          _navChip(context, '근태', Icons.calendar_month, AppRouter.attendance),
                           _navChip(context, '세금계산서', Icons.receipt, AppRouter.invoiceList),
                           _navChip(context, '요금설정', Icons.settings, AppRouter.fareSettings),
                           _navChip(context, '1:1 문의', Icons.chat, AppRouter.inquiryList),

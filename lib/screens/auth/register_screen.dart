@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../api/auth_api.dart';
 import '../../services/auth_service.dart';
 import '../../routes/app_router.dart';
+import '../../widgets/signup_bonus_mileage_notice.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -113,6 +114,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (v) =>
                         v == null || v.isEmpty ? '비밀번호를 입력하세요' : null,
                   ),
+                  const SizedBox(height: 16),
+                  const SignupBonusMileageNotice(),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: _loading

@@ -36,9 +36,19 @@ class MileageApi {
           data['withdrawableMileage'] ??
           balance,
     );
+    final signupBonusRemaining = pickInt(
+      data['signupBonusRemaining'] ?? data['signupBonusLocked'],
+    );
+    final gifticonSpendable = pickInt(
+      data['gifticonSpendable'] ??
+          data['gifticonBalance'] ??
+          (balance - signupBonusRemaining).clamp(0, balance),
+    );
     return MileageBalance(
       balance: balance,
       withdrawable: withdrawable,
+      gifticonSpendable: gifticonSpendable,
+      signupBonusRemaining: signupBonusRemaining,
     );
   }
 
@@ -58,9 +68,18 @@ class MileageApi {
 }
 
 class MileageBalance {
-  const MileageBalance({required this.balance, required this.withdrawable});
+  const MileageBalance({
+    required this.balance,
+    required this.withdrawable,
+    int? gifticonSpendable,
+    this.signupBonusRemaining = 0,
+  }) : gifticonSpendable = gifticonSpendable ?? balance;
+
   final int balance;
   final int withdrawable;
+  /// 기프티콘 교환에 사용 가능 (가입 보너스 제외, 신규 가입자만)
+  final int gifticonSpendable;
+  final int signupBonusRemaining;
 }
 
 class MileageHistoryItem {

@@ -5,9 +5,14 @@ import '../utils/idempotency.dart';
 /// 스펙: POST /payments, 인증 Bearer {userAccessToken}
 class PaymentsApi {
   static const _base = '/payments';
+  static const _paymentTimeout = Duration(seconds: 30);
 
-  /// 저장된 카드로 결제 (빌링키 청구)
-  /// 백엔드에서 cardId로 빌링키 조회 후 PortOne API로 결제 처리
+  /// 동일 ride에 대한 중복 결제 기록 방지용 멱등 키
+  static String idempotencyKeyForRide(String rideId) => 'pay-$rideId';
+  static String chargeIdempotencyKeyForRide(String rideId) => 'charge-$rideId';
+
+  /// 저장된 카드로 결제 (토스 빌링키 자동결제)
+  /// 백엔드에서 cardId로 빌링키 조회 후 토스 빌링 API로 결제 처리
   static Future<void> chargeWithCard({
     required String rideId,
     required int amount,
@@ -22,6 +27,8 @@ class PaymentsApi {
         'cardId': cardId,
       },
       headers: {'Idempotency-Key': idempotencyKey ?? generateIdempotencyKey()},
+      sendTimeout: _paymentTimeout,
+      receiveTimeout: _paymentTimeout,
     );
   }
 
@@ -56,6 +63,8 @@ class PaymentsApi {
       _base,
       data: body,
       headers: {'Idempotency-Key': idempotencyKey ?? generateIdempotencyKey()},
+      sendTimeout: _paymentTimeout,
+      receiveTimeout: _paymentTimeout,
     );
     final map = res.data as Map<String, dynamic>?;
     final data = map?['data'] as Map<String, dynamic>? ?? map;

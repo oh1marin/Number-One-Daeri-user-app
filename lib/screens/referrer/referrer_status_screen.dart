@@ -5,6 +5,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../api/referral_api.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/app_share_text.dart';
+import '../../utils/user_friendly_text.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../widgets/load_error_view.dart';
 
 /// 내추천인 현황 - 1줄 추천인 요약 + 실적
 class ReferrerStatusScreen extends StatefulWidget {
@@ -17,6 +21,7 @@ class ReferrerStatusScreen extends StatefulWidget {
 class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
   int _count = 0;
   bool _loading = true;
+  String? _error;
   bool _tier2Earned = false;
   bool _tier5Earned = false;
 
@@ -27,31 +32,47 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final res = await ReferralApi.getMy();
-      if (res.success && res.data != null && mounted) {
+      if (!mounted) return;
+      if (res.success && res.data != null) {
         final d = res.data!;
         setState(() {
           _count = (d['referredCount'] as num?)?.toInt() ?? 0;
           final tierCoupons = d['tierCoupons'] as List? ?? [];
           _tier2Earned = tierCoupons.any((c) => (c as Map)['tier'] == 2);
           _tier5Earned = tierCoupons.any((c) => (c as Map)['tier'] == 5);
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _error = res.error ?? '추천 현황을 불러오지 못했습니다.';
         });
       }
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = loadErrorMessage(e, fallback: '추천 현황을 불러오지 못했습니다.');
+        });
+      }
+    }
   }
 
   void _shareApp() {
-    Share.share(
-      '일등대리 1668-0001 완전대박! 앱 다운받고 혜택 받아가세요 🚗',
-      subject: '일등대리 앱 추천',
-    );
+    Share.share(AppShareText.build(), subject: '일등대리 앱 추천');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConnectivityReconnectListener(
+      onReconnect: _load,
+      child: Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -61,7 +82,9 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : _error != null
+              ? LoadErrorView(message: _error!, onRetry: _load)
+              : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,6 +96,12 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
                   _NextRewardCard(count: _count),
                   const Gap(20),
                   _AchievementSection(tier2: _tier2Earned, tier5: _tier5Earned, count: _count),
+                  if (_tier2Earned || _tier5Earned || _count >= 2) ...[
+                    const Gap(12),
+                    _TierCouponHint(
+                      onTap: () => Navigator.pushNamed(context, '/coupon'),
+                    ),
+                  ],
                   const Gap(24),
                   _ShareButton(onTap: _shareApp),
                   const Gap(16),
@@ -83,6 +112,7 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
                 ],
               ),
             ),
+    ),
     );
   }
 }
@@ -174,7 +204,7 @@ class _BenefitsSection extends StatelessWidget {
         children: [
           _BenefitBlock(
             title: '추천인 혜택',
-            content: '친구 가입 시 2,000원 → 첫 이용 시 3,000원 추가 → 친구 이용할 때마다 이용금액의 2% 적립!',
+            content: '친구 가입 시 2,000원 → 첫 이용 시 3,000원 추가 → 친구 이용할 때마다 이용금액의 5% 적립!',
           ),
           const Gap(16),
           Divider(color: Colors.grey.shade200),
@@ -245,11 +275,11 @@ class _NextRewardCard extends StatelessWidget {
       remain = 0;
     } else if (count >= 2) {
       nextTier = '5명';
-      nextReward = '교촌치킨 세트';
+      nextReward = '교촌양념 (22,000원)';
       remain = 5 - count;
     } else {
       nextTier = '2명';
-      nextReward = '스타벅스 쿠폰 2장';
+      nextReward = '메가MGC커피 아메리카노 쿠폰 2장';
       remain = 2 - count;
     }
 
@@ -341,7 +371,7 @@ class _AchievementSection extends StatelessWidget {
             Expanded(
               child: _AchievementBadge(
                 label: '2명 추천',
-                reward: '스타벅스',
+                reward: '메가MGC커피',
                 achieved: tier2 || count >= 2,
               ),
             ),
@@ -349,13 +379,55 @@ class _AchievementSection extends StatelessWidget {
             Expanded(
               child: _AchievementBadge(
                 label: '5명 추천',
-                reward: '교촌치킨',
+                reward: '교촌양념',
                 achieved: tier5 || count >= 5,
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _TierCouponHint extends StatelessWidget {
+  const _TierCouponHint({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(Icons.card_giftcard_rounded, color: Colors.green.shade700),
+              const Gap(10),
+              Expanded(
+                child: Text(
+                  '2명·5명 달성 기프티콘 티켓은 쿠폰함에 지급됩니다. 원할 때 사용하세요.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Colors.green.shade900,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.green.shade700),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -405,6 +477,13 @@ class _AchievementBadge extends StatelessWidget {
               color: achieved ? Colors.green.shade800 : Colors.grey.shade600,
             ),
           ),
+          if (achieved) ...[
+            const Gap(4),
+            Text(
+              '쿠폰함 지급',
+              style: TextStyle(fontSize: 11, color: Colors.green.shade700),
+            ),
+          ],
         ],
       ),
     );
@@ -465,7 +544,7 @@ class _EmptyStateWithCta extends StatelessWidget {
           ),
           const Gap(8),
           Text(
-            '친구 추천하면 2천원! 첫 이용 시 3천원! 이용할 때마다 2%',
+            '친구 추천하면 2천원! 첫 이용 시 3천원! 이용할 때마다 5%',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             textAlign: TextAlign.center,
           ),

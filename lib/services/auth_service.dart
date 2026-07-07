@@ -2,6 +2,7 @@ import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../models/admin.dart';
 import 'push_notification_service.dart';
+import 'session_service.dart';
 import 'token_storage.dart';
 
 class AuthService {
@@ -33,25 +34,31 @@ class AuthService {
     return token != null && token.isNotEmpty;
   }
 
-  static Future<void> logout() async {
-    // best-effort: unregister token mapping for this user
+  static Future<void> logout({bool navigateToLoggedOut = true}) async {
+    SessionService.markAuthInvalid();
+    ApiClient.suppressAuthRecovery = true;
     try {
-      await PushNotificationService.deleteTokenFromBackend();
-    } catch (_) {}
-    await TokenStorage.clear();
-    ApiClient.setToken(null);
+      await SessionService.clearSession(navigateToLogin: false);
+      if (navigateToLoggedOut) {
+        SessionService.scheduleLoginRedirect();
+      }
+    } finally {
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        ApiClient.suppressAuthRecovery = false;
+      });
+    }
   }
 
   static Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
   }) async {
+    SessionService.markAuthValid();
     await TokenStorage.saveTokens(
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
     ApiClient.setToken(accessToken);
-    // best-effort: register current device token to this user
     try {
       await PushNotificationService.syncTokenToBackend();
     } catch (_) {}

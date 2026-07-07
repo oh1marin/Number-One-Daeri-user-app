@@ -1,6 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-/// S3 등 원격 이미지 표시 (로딩·오류 처리 공통)
+/// S3 등 원격 이미지 표시 (메모리·디스크 캐시, 로딩·오류 처리 공통)
 class AppNetworkImage extends StatelessWidget {
   const AppNetworkImage({
     super.key,
@@ -10,6 +11,7 @@ class AppNetworkImage extends StatelessWidget {
     this.width,
     this.height,
     this.borderRadius,
+    this.errorWidget,
   });
 
   final String url;
@@ -18,27 +20,36 @@ class AppNetworkImage extends StatelessWidget {
   final double? width;
   final double? height;
   final BorderRadius? borderRadius;
+  final Widget? errorWidget;
+
+  int? _memCacheDim(double? logical, BuildContext context) {
+    if (logical == null || !logical.isFinite || logical <= 0) return null;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return (logical * dpr).round().clamp(1, 2048);
+  }
 
   @override
   Widget build(BuildContext context) {
-    Widget image = Image.network(
-      url,
+    final memW = _memCacheDim(width, context);
+    final memH = _memCacheDim(height, context);
+
+    Widget image = CachedNetworkImage(
+      imageUrl: url,
       fit: fit,
       alignment: alignment,
       width: width,
       height: height,
-      errorBuilder: (_, __, ___) =>
+      memCacheWidth: memW,
+      memCacheHeight: memH,
+      placeholder: (context, url) => const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      errorWidget: (context, url, error) => errorWidget ??
           const Icon(Icons.broken_image_outlined, size: 32),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        );
-      },
     );
 
     if (borderRadius != null) {
