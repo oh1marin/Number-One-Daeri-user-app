@@ -26,7 +26,7 @@ void main() {
   final cropped = img.copyCrop(src, x: x, y: y, width: cw, height: ch);
 
   const size = 1024;
-  const margin = 48;
+  const margin = 56;
   final inner = size - margin * 2;
   final scaled = img.copyResize(
     cropped,

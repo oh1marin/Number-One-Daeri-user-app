@@ -21,7 +21,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # - `+<buildNumber>` is the Android `versionCode`.
 # - Every upload MUST use a NEW, higher buildNumber (Play will reject duplicates).
 # - Recommended: use yyyymmddNN (e.g. 2026042001) and increment NN for multiple builds in a day.
-version: 1.0.0+2026060904
+version: 1.0.0+2026060905
 
 environment:
   sdk: ^3.11.1
@@ -92,7 +92,7 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   adaptive_icon_background: "#1B4DB8"
   adaptive_icon_foreground: assets/icons/logo_foreground.png
-  adaptive_icon_foreground_inset: 6
+  adaptive_icon_foreground_inset: 8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
