@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../api/geocode_api.dart';
 import '../../services/kakao_local_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_screen_widgets.dart';
 
 /// 도착지 선택 - 주소/장소 검색 화면
 class DestinationSearchScreen extends StatefulWidget {
@@ -133,7 +134,7 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
             child: Container(
               color: Colors.white,
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AppPageLoading()
                   : _searched && _results.isEmpty
                       ? Center(
                           child: Text(

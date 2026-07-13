@@ -5,7 +5,9 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../api/mileage_api.dart';
 import '../../utils/mileage_balance_cache.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive_layout.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
 import '../../widgets/signup_bonus_mileage_notice.dart';
@@ -78,6 +80,7 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
+    final hPad = ResponsiveLayout.pageHorizontal(context);
     return ConnectivityReconnectListener(
       onReconnect: _load,
       child: Scaffold(
@@ -91,7 +94,7 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppPageLoading()
           : _error != null
               ? LoadErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(
@@ -100,7 +103,7 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        padding: EdgeInsets.fromLTRB(hPad, 14, hPad, 0),
                         sliver: SliverList(
                           delegate: SliverChildListDelegate([
                             _BalanceCard(
@@ -116,29 +119,18 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
                                 _load();
                               },
                             ),
-                            const Gap(12),
+                            const Gap(10),
                             const SignupBonusMileageNotice(),
-                            const Gap(12),
-                            _GifticonExchangeBanner(
-                              onTap: () async {
-                                await Navigator.pushNamed(
-                                  context,
-                                  '/gifticon-shop',
-                                  arguments: _balance,
-                                );
-                                _load();
-                              },
-                            ),
-                            const Gap(12),
+                            const Gap(10),
                             _CouponSeparateBanner(),
-                            const Gap(24),
+                            const Gap(16),
                             Row(
                               children: [
                                 const Text(
                                   '이용 내역',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     color: AppTheme.primaryDark,
                                   ),
                                 ),
@@ -146,24 +138,24 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
                                 Text(
                                   '쿠폰 제외',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     color: Colors.grey.shade500,
                                   ),
                                 ),
                               ],
                             ),
-                            const Gap(12),
+                            const Gap(10),
                           ]),
                         ),
                       ),
                       if (_history.isEmpty)
                         SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(horizontal: hPad),
                           sliver: SliverToBoxAdapter(child: _EmptyHistory()),
                         )
                       else
                         SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(horizontal: hPad),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
@@ -186,7 +178,7 @@ class _MileageScreenState extends State<MileageScreen> with WidgetsBindingObserv
                             ),
                           ),
                         ),
-                      const SliverToBoxAdapter(child: Gap(40)),
+                      const SliverToBoxAdapter(child: AppScrollSafeGap(extra: 12)),
                     ],
                   ),
                 ),
@@ -221,14 +213,14 @@ class _BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryDark.withValues(alpha: 0.25),
@@ -257,21 +249,21 @@ class _BalanceCard extends StatelessWidget {
               PhosphorIcon(PhosphorIconsRegular.wallet, color: Colors.white.withValues(alpha: 0.5), size: 28),
             ],
           ),
-          const Gap(16),
+          const Gap(12),
           Text(
             '${fmt(balance)}원',
-            style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+            style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
           ),
           const Gap(4),
-          Text('가입 시 10,000원 / 카드 결제 10% 적립', style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12)),
-          const Gap(16),
+          Text('가입 시 10,000원 / 카드 결제 10% 적립', style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11)),
+          const Gap(12),
           Row(
             children: [
               Expanded(
                 child: GestureDetector(
                   onTap: onGifticonTap,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2E7D32),
                       borderRadius: BorderRadius.circular(12),
@@ -293,7 +285,7 @@ class _BalanceCard extends StatelessWidget {
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -305,14 +297,14 @@ class _BalanceCard extends StatelessWidget {
               GestureDetector(
                 onTap: () => Navigator.pushNamed(context, '/withdrawal'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppTheme.accentYellow,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
                     '출금신청',
-                    style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 13),
+                    style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.w800, fontSize: 12),
                   ),
                 ),
               ),
@@ -332,67 +324,6 @@ class _BalanceCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── 기프티콘 교환 배너 ─────────────────────────────────────────────────────────
-
-class _GifticonExchangeBanner extends StatelessWidget {
-  const _GifticonExchangeBanner({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.green.shade50, Colors.teal.shade50],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.green.shade200),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
-            ),
-            const Gap(14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '마일리지 기프티콘 교환몰',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.primaryDark,
-                    ),
-                  ),
-                  const Gap(4),
-                  Text(
-                    '메가MGC커피 · BBQ 치킨 모바일 교환권',
-                    style: TextStyle(fontSize: 11, color: Colors.green.shade800, height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.green.shade700),
-          ],
-        ),
       ),
     );
   }
@@ -480,8 +411,8 @@ class _TransactionItem extends StatelessWidget {
             : Colors.grey.shade700;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),

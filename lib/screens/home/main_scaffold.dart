@@ -57,6 +57,7 @@ class _AppDrawer extends StatelessWidget {
     _DrawerSection(title: '내 정보', items: [
       _DrawerItem(icon: PhosphorIconsRegular.car,         label: '운행내역',       route: '/ride-history'),
       _DrawerItem(icon: PhosphorIconsRegular.wallet,      label: '마일리지내역',   route: '/mileage'),
+      _DrawerItem(icon: PhosphorIconsRegular.gift,        label: '기프티콘 교환',  route: '/gifticon-shop'),
       _DrawerItem(icon: PhosphorIconsRegular.creditCard,  label: '카드관리',       route: '/card'),
       _DrawerItem(icon: PhosphorIconsRegular.userPlus,    label: '내추천인 등록',  route: '/referrer'),
       _DrawerItem(icon: PhosphorIconsRegular.users,       label: '내추천인 현황',  route: '/referrer-status'),

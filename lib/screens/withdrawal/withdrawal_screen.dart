@@ -194,13 +194,8 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     return ConnectivityReconnectListener(
       onReconnect: _loadBalance,
       child: Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('출금신청', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-      ),
+      backgroundColor: AppTheme.surfaceGrey,
+      appBar: AppBar(title: const Text('출금신청')),
       body: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(

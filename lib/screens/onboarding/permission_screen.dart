@@ -42,16 +42,13 @@ class _PermissionScreenState extends State<PermissionScreen> {
                   children: [
                     Text(
                       '접근권한 알림',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '권한 허용후 서비스를 이용할 수 있습니다.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.black54,
+                            color: AppTheme.textSecondary,
                           ),
                     ),
                     const SizedBox(height: 24),

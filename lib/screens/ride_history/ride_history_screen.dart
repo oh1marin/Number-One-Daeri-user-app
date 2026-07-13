@@ -7,6 +7,8 @@ import '../../api/rides_api.dart';
 import '../../models/ride.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/app_screen_widgets.dart';
+import '../../widgets/load_error_view.dart';
 
 class RideHistoryScreen extends StatefulWidget {
   const RideHistoryScreen({super.key});
@@ -81,9 +83,9 @@ class _RideHistoryScreenState extends State<RideHistoryScreen>
       backgroundColor: AppTheme.surfaceGrey,
       appBar: AppBar(title: const Text('이용내역')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppPageLoading()
           : _error != null
-              ? _ErrorState(message: _error!, onRetry: _load)
+              ? LoadErrorView(message: _error!, onRetry: () => _load())
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
@@ -242,47 +244,15 @@ class _EmptyState extends StatelessWidget {
             child: PhosphorIcon(PhosphorIconsRegular.car, size: 48, color: Colors.grey.shade400),
           ),
           const SizedBox(height: 24),
-          Text('운행 내역이 없습니다.', style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+          Text(
+            '운행 내역이 없습니다.',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+          ),
         ],
       ),
     ).animate().fadeIn(duration: 500.ms, delay: 200.ms).scale(begin: const Offset(0.95, 0.95), curve: Curves.easeOut);
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            PhosphorIcon(
-              PhosphorIconsRegular.warning,
-              size: 40,
-              color: Colors.grey.shade500,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('다시 시도'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

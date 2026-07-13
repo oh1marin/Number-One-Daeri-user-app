@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 
-/// 다크 네이비 헤더 + 로고 + 1668 0001
+import '../theme/app_theme.dart';
+
+/// 온보딩 상단 — 스플래시·앱정보와 같은 네이비 톤 + 로고
 class AppHeader extends StatelessWidget {
   const AppHeader({
     super.key,
@@ -9,27 +12,69 @@ class AppHeader extends StatelessWidget {
 
   final double? height;
 
+  static const _hotline = '010-2184-8822';
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       height: height ?? 200,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
       decoration: const BoxDecoration(
-        color: AppColors.primaryDark,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryDark,
+            Color(0xFF1A2F6B),
+          ],
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _LogoWidget(),
-          const SizedBox(height: 16),
-          Text(
-            '1668 0001',
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/icons/logo.png',
+                width: 56,
+                height: 56,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const Gap(14),
+          const Text(
+            '일등대리',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const Gap(6),
+          Text(
+            _hotline,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
@@ -37,34 +82,5 @@ class AppHeader extends StatelessWidget {
   }
 }
 
-class _LogoWidget extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Icon(Icons.directions_car, size: 48, color: Colors.white.withValues(alpha: 0.9)),
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.lightBlue, width: 2),
-          ),
-        ),
-        Positioned(
-          top: 4,
-          right: 12,
-          child: Icon(Icons.trending_up, color: AppColors.lightBlue, size: 24),
-        ),
-      ],
-    );
-  }
-}
-
-class AppColors {
-  static const Color primaryDark = Color(0xFF0D1B48);
-  static const Color accentYellow = Color(0xFFFFD54F);
-  static const Color accentBlue = Color(0xFF2196F3);
-  static const Color lightBlue = Color(0xFF64B5F6);
-}
+/// @deprecated AppTheme 사용. 하위 호환용 alias.
+typedef AppColors = AppTheme;

@@ -14,9 +14,60 @@ class AppTheme {
   static const Color surfaceGrey   = Color(0xFFF5F6FA);
   static const Color borderGrey    = Color(0xFFE8EAF0);
   static const Color textSecondary = Color(0xFF8A93A6);
+  static const Color errorRed = Color(0xFFE53935);
+  static const Color successGreen = Color(0xFF43A047);
+
+  static const double radiusCard = 14;
+  static const double radiusButton = 12;
+  static const double radiusInput = 10;
+  static const EdgeInsets pagePadding = EdgeInsets.all(14);
+
+  static TextTheme get _textTheme => const TextTheme(
+        titleLarge: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: primaryDark,
+          letterSpacing: -0.4,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: primaryDark,
+          letterSpacing: -0.3,
+        ),
+        titleSmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: primaryDark,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: primaryDark,
+          height: 1.4,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: primaryDark,
+          height: 1.45,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: textSecondary,
+          height: 1.35,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: primaryDark,
+        ),
+      );
 
   static ThemeData get theme => ThemeData(
         useMaterial3: true,
+        visualDensity: VisualDensity.compact,
         colorScheme: ColorScheme.fromSeed(
           seedColor: accentBlue,
           primary: primaryDark,
@@ -25,6 +76,7 @@ class AppTheme {
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: surfaceGrey,
+        textTheme: _textTheme,
 
         // ── 앱바: 흰 배경 + 네이비 텍스트 ──────────────────────────────────
         appBarTheme: const AppBarTheme(
@@ -36,7 +88,7 @@ class AppTheme {
           systemOverlayStyle: SystemUiConfig.overlayLight,
           titleTextStyle: TextStyle(
             color: primaryDark,
-            fontSize: 17,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
           ),
@@ -60,12 +112,12 @@ class AppTheme {
             backgroundColor: primaryDark,
             foregroundColor: Colors.white,
             elevation: 0,
-            minimumSize: const Size.fromHeight(52),
+            minimumSize: const Size.fromHeight(40),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
             textStyle: const TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.2,
             ),
@@ -77,12 +129,12 @@ class AppTheme {
           style: OutlinedButton.styleFrom(
             foregroundColor: primaryDark,
             side: const BorderSide(color: primaryDark),
-            minimumSize: const Size.fromHeight(52),
+            minimumSize: const Size.fromHeight(40),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
             textStyle: const TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -93,7 +145,7 @@ class AppTheme {
           style: TextButton.styleFrom(
             foregroundColor: primaryDark,
             textStyle: const TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -103,7 +155,7 @@ class AppTheme {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: borderGrey),
@@ -120,8 +172,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFFE53935)),
           ),
-          labelStyle: const TextStyle(color: textSecondary, fontSize: 14),
-          hintStyle: const TextStyle(color: textSecondary, fontSize: 14),
+          labelStyle: const TextStyle(color: textSecondary, fontSize: 12),
+          hintStyle: const TextStyle(color: textSecondary, fontSize: 12),
         ),
 
         // ── 하단 내비 ──────────────────────────────────────────────────────
@@ -161,6 +213,20 @@ class AppTheme {
                 ? primaryDark.withValues(alpha: 0.25)
                 : borderGrey,
           ),
+        ),
+
+        expansionTileTheme: const ExpansionTileThemeData(
+          backgroundColor: Colors.white,
+          collapsedBackgroundColor: Colors.white,
+          iconColor: primaryDark,
+          collapsedIconColor: textSecondary,
+          textColor: primaryDark,
+          collapsedTextColor: primaryDark,
+        ),
+
+        listTileTheme: const ListTileThemeData(
+          iconColor: textSecondary,
+          textColor: primaryDark,
         ),
       );
 }

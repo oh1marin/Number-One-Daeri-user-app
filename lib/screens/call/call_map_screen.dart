@@ -27,6 +27,7 @@ import '../../utils/toss_payment_errors.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/map_location_pin.dart';
+import '../../widgets/top_app_notice.dart';
 import '../card/card_screen.dart';
 import '../payment/toss_payment_screen.dart';
 import 'destination_search_screen.dart';
@@ -37,9 +38,14 @@ part 'call_map_booking_panel.dart';
 
 const LatLng _kSeoul = LatLng(latitude: 37.5665, longitude: 126.9780);
 
+/// 지도 영역 비율 — 기본은 약간 축소, 경유지 있을 때만 더 줄여 하단 패널 공간 확보
+const double _kMapBodyHeightFraction = 0.38;
+const double _kMapBodyHeightFractionWithWaypoints = 0.28;
+
 /// 지도 오버레이 핀 — 출발/도착 구분용 빨강 톤
 const Color _kPinDepartureRed = Color(0xFFE53935);
 const Color _kPinDestinationRed = Color(0xFFC62828);
+const Color _kPinWaypointOrange = Color(0xFFFF9800);
 
 /// 위경도 → 화면 픽셀 변환 (Web Mercator, toScreenPoint 대체)
 Offset _latLngToScreen(
@@ -117,6 +123,7 @@ class _CallMapScreenState extends State<CallMapScreen> {
   bool _focusMoveInProgress = false;
   bool _isDetailEditMode = false;
   _MapFocus? _detailEditTarget;
+  bool _confirmingDetailEdit = false;
 
   bool _isSubmittingCall = false;
   String? _clientCallIdInFlight;
@@ -125,6 +132,9 @@ class _CallMapScreenState extends State<CallMapScreen> {
   bool _departureCustomized = false;
 
   Timer? _estimateDebounce;
+  Timer? _detailEditRedrawDebounce;
+  Timer? _pinSyncDebounce;
+  bool _mapSurfaceBusy = false;
   bool _paymentMetaLoaded = false;
   bool _paymentMetaLoading = false;
 
@@ -138,37 +148,39 @@ class _CallMapScreenState extends State<CallMapScreen> {
 
   Future<void> _refreshToGps() async {
     if (_focusMoveInProgress) return;
-    _focusMoveInProgress = true;
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      if (!mounted) return;
-      final target = LatLng(latitude: pos.latitude, longitude: pos.longitude);
-      final addr = await GeocodeApi.reverse(target.latitude, target.longitude);
-      if (!mounted) return;
-      setState(() {
-        _departure = target;
-        _departureAddr = addr != null ? '현재위치: $addr' : '현재 위치';
-        _departureCustomized = false;
-        _mapFocus = _MapFocus.departure;
-      });
-      _cameraCenter = target;
-      _lockedZoomLevel = 17;
-      _isProgrammaticMove = true;
-      await _mapController?.moveCamera(
-        cameraUpdate: CameraUpdate(position: target, zoomLevel: 17),
-        animation: const CameraAnimation(duration: 0, autoElevation: true, isConsecutive: false),
-      );
-      _isProgrammaticMove = false;
-    } catch (_) {}
-    await Future.delayed(const Duration(milliseconds: 200));
-    _focusMoveInProgress = false;
-    if (mounted) {
-      setState(() {});
-      if (_destination != null) _scheduleEstimateFetch();
-      await _syncPinOverlays();
-    }
+    await _runMapSurfaceWork(() async {
+      _focusMoveInProgress = true;
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        if (!mounted) return;
+        final target = LatLng(latitude: pos.latitude, longitude: pos.longitude);
+        final addr = await GeocodeApi.reverse(target.latitude, target.longitude);
+        if (!mounted) return;
+        _invalidatePinOffsets();
+        setState(() {
+          _departure = target;
+          _departureAddr = addr != null ? '현재위치: $addr' : '현재 위치';
+          _departureCustomized = false;
+          _mapFocus = _MapFocus.departure;
+        });
+        _cameraCenter = target;
+        _lockedZoomLevel = 17;
+        _isProgrammaticMove = true;
+        await _mapController?.moveCamera(
+          cameraUpdate: CameraUpdate(position: target, zoomLevel: 17),
+          animation: const CameraAnimation(duration: 0, autoElevation: true, isConsecutive: false),
+        );
+        _isProgrammaticMove = false;
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 200));
+      _focusMoveInProgress = false;
+      if (mounted) {
+        if (_destination != null) _scheduleEstimateFetch();
+        await _syncPinOverlays(immediate: true);
+      }
+    });
   }
 
   Future<void> _loadLocationFast() async {
@@ -344,23 +356,47 @@ class _CallMapScreenState extends State<CallMapScreen> {
         );
   }
 
-  Future<void> _syncPinOverlays() async {
+  Future<void> _syncPinOverlays({bool immediate = false}) async {
+    if (_isDetailEditMode) return;
     final c = _mapController;
     if (c == null || !mounted) return;
-    final dep = await c.toScreenPoint(position: _departure);
-    Offset? dest;
-    if (_destination != null) {
-      dest = await c.toScreenPoint(
-        position: LatLng(
-          latitude: _destination!.lat,
-          longitude: _destination!.lng,
-        ),
-      );
+
+    Future<void> run() async {
+      final dep = await c.toScreenPoint(position: _departure);
+      Offset? dest;
+      if (_destination != null) {
+        dest = await c.toScreenPoint(
+          position: LatLng(
+            latitude: _destination!.lat,
+            longitude: _destination!.lng,
+          ),
+        );
+      }
+      if (!mounted || dep == null) return;
+      final depChanged = _depPinOffset == null ||
+          (dep.dx - _depPinOffset!.dx).abs() > 0.5 ||
+          (dep.dy - _depPinOffset!.dy).abs() > 0.5;
+      final destChanged = dest == null
+          ? _destPinOffset != null
+          : (_destPinOffset == null ||
+              (dest.dx - _destPinOffset!.dx).abs() > 0.5 ||
+              (dest.dy - _destPinOffset!.dy).abs() > 0.5);
+      if (!depChanged && !destChanged) return;
+      setState(() {
+        _depPinOffset = dep;
+        _destPinOffset = dest;
+      });
     }
-    if (!mounted) return;
-    setState(() {
-      _depPinOffset = dep;
-      _destPinOffset = dest;
+
+    if (immediate) {
+      _pinSyncDebounce?.cancel();
+      await run();
+      return;
+    }
+
+    _pinSyncDebounce?.cancel();
+    _pinSyncDebounce = Timer(const Duration(milliseconds: 60), () {
+      if (mounted) run();
     });
   }
 
@@ -440,7 +476,8 @@ class _CallMapScreenState extends State<CallMapScreen> {
     if (_isProgrammaticMove || _focusMoveInProgress) return;
 
     if (_isDetailEditMode) {
-      _cameraCenter = LatLng(latitude: e.latitude, longitude: e.longitude);
+      final next = LatLng(latitude: e.latitude, longitude: e.longitude);
+      _cameraCenter = next;
       final zoomDrift = e.zoomLevel.round() != _lockedZoomLevel;
       if (zoomDrift) {
         _isProgrammaticMove = true;
@@ -450,8 +487,7 @@ class _CallMapScreenState extends State<CallMapScreen> {
         );
         _isProgrammaticMove = false;
       }
-      if (mounted) setState(() {});
-      await _syncPinOverlays();
+      if (mounted) _scheduleDetailEditRedraw();
       return;
     }
 
@@ -466,27 +502,20 @@ class _CallMapScreenState extends State<CallMapScreen> {
     final zoomDrift = e.zoomLevel.round() != _lockedZoomLevel;
     if (posDrift || zoomDrift) {
       await _snapCameraToFocusedPin(c);
-      if (mounted) setState(() {});
     }
     await _syncPinOverlays();
-  }
-
-  Future<void> _fitBoundsIfDestination() async {
-    if (_destination == null || _mapController == null) return;
-    _mapFocus = _MapFocus.destination;
-    await _centerOnFocusedPin();
   }
 
   Future<void> _updateMapAndOverlays() async {
+    _invalidatePinOffsets();
     if (_destination != null) {
-      await _fitBoundsIfDestination();
+      _mapFocus = _MapFocus.destination;
     } else {
       _mapFocus = _MapFocus.departure;
-      if (_mapController != null) await _centerOnFocusedPin();
     }
-    await Future.delayed(const Duration(milliseconds: 80));
-    if (mounted) setState(() {});
-    await _syncPinOverlays();
+    if (_mapController != null) {
+      await _centerOnFocusedPin();
+    }
     _scheduleEstimateFetch();
   }
 
@@ -563,8 +592,11 @@ class _CallMapScreenState extends State<CallMapScreen> {
       ),
     );
     _isProgrammaticMove = false;
-    if (mounted) setState(() {});
-    await _syncPinOverlays();
+    // 재생성 시 불필요한 setState·sync 생략 — 검은 화면/끊김 완화
+    if (!hadController && mounted) {
+      setState(() {});
+      await _syncPinOverlays();
+    }
   }
 
   Future<void> _onMapFocusChanged(_MapFocus focus) async {
@@ -573,34 +605,69 @@ class _CallMapScreenState extends State<CallMapScreen> {
     final c = _mapController;
     if (c == null) return;
 
-    _focusMoveInProgress = true;
-    _mapFocus = focus;
-    _isProgrammaticMove = true;
+    await _runMapSurfaceWork(() async {
+      _focusMoveInProgress = true;
+      _mapFocus = focus;
+      _invalidatePinOffsets();
+      _isProgrammaticMove = true;
 
-    final target = focus == _MapFocus.departure
-        ? _departure
-        : LatLng(latitude: _destination!.lat, longitude: _destination!.lng);
+      final target = focus == _MapFocus.departure
+          ? _departure
+          : LatLng(latitude: _destination!.lat, longitude: _destination!.lng);
 
-    _cameraCenter = target;
-    _lockedZoomLevel = 17;
+      _cameraCenter = target;
+      _lockedZoomLevel = 17;
 
-    await c.moveCamera(
-      cameraUpdate: CameraUpdate(position: target, zoomLevel: 17),
-      animation: const CameraAnimation(duration: 60, autoElevation: true, isConsecutive: false),
-    );
+      await c.moveCamera(
+        cameraUpdate: CameraUpdate(position: target, zoomLevel: 17),
+        animation: const CameraAnimation(duration: 60, autoElevation: true, isConsecutive: false),
+      );
 
-    await Future.delayed(const Duration(milliseconds: 40));
-    _isProgrammaticMove = false;
-    _focusMoveInProgress = false;
-    if (mounted) setState(() {});
-    await _syncPinOverlays();
+      await Future.delayed(const Duration(milliseconds: 40));
+      _isProgrammaticMove = false;
+      _focusMoveInProgress = false;
+      await _syncPinOverlays(immediate: true);
+    });
+  }
+
+  void _scheduleDetailEditRedraw() {
+    _detailEditRedrawDebounce?.cancel();
+    _detailEditRedrawDebounce = Timer(const Duration(milliseconds: 48), () {
+      if (mounted && _isDetailEditMode) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _estimateDebounce?.cancel();
+    _detailEditRedrawDebounce?.cancel();
+    _pinSyncDebounce?.cancel();
     _cameraSub?.cancel();
     super.dispose();
+  }
+
+  double _mapAreaHeight(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bodyH = media.size.height - kToolbarHeight - media.padding.top;
+    final fraction = _waypoints.isNotEmpty
+        ? _kMapBodyHeightFractionWithWaypoints
+        : _kMapBodyHeightFraction;
+    return bodyH * fraction;
+  }
+
+  void _invalidatePinOffsets() {
+    _depPinOffset = null;
+    _destPinOffset = null;
+  }
+
+  Future<void> _runMapSurfaceWork(Future<void> Function() work) async {
+    if (!mounted) return;
+    setState(() => _mapSurfaceBusy = true);
+    try {
+      await work();
+    } finally {
+      if (mounted) setState(() => _mapSurfaceBusy = false);
+    }
   }
 
   Future<void> _openDepartureSearch() async {
@@ -617,17 +684,14 @@ class _CallMapScreenState extends State<CallMapScreen> {
       ),
     );
     if (r != null && mounted) {
-      setState(() {
-        _departure = LatLng(latitude: r.lat, longitude: r.lng);
-        _departureAddr = r.name.isNotEmpty ? r.name : r.address;
-        _departureCustomized = true;
+      await _runMapSurfaceWork(() async {
+        setState(() {
+          _departure = LatLng(latitude: r.lat, longitude: r.lng);
+          _departureAddr = r.name.isNotEmpty ? r.name : r.address;
+          _departureCustomized = true;
+        });
+        await _updateMapAndOverlays();
       });
-      await _updateMapAndOverlays();
-      if (_destination != null && mounted) {
-        _mapFocus = _MapFocus.departure;
-        await _centerOnFocusedPin();
-        if (mounted) setState(() {});
-      }
     }
   }
 
@@ -697,13 +761,59 @@ class _CallMapScreenState extends State<CallMapScreen> {
       ),
     );
     if (r != null && mounted) {
-      setState(() => _destination = r);
-      await _updateMapAndOverlays();
+      await _runMapSurfaceWork(() async {
+        setState(() => _destination = r);
+        await _updateMapAndOverlays();
+      });
     }
+  }
+
+  Widget _buildMapView() {
+    final map = ColoredBox(
+      color: Colors.grey.shade200,
+      child: _CallMapView(
+        key: const ValueKey('call_map_view'),
+        isLoading: _isLoading,
+        kakaoOk: _kakaoOk,
+        initialMapPosition: _cameraCenter,
+        departure: _departure,
+        destination: _destination,
+        mapFocus: _mapFocus,
+        isDetailEditMode: _isDetailEditMode,
+        detailEditTarget: _detailEditTarget,
+        allowTouch: _isDetailEditMode,
+        onMapCreated: _onMapCreated,
+        onMapFocusChanged: _onMapFocusChanged,
+        onOpenDetailEdit: _openDetailEdit,
+      ),
+    );
+
+    if (!_mapSurfaceBusy) return map;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        map,
+        ColoredBox(
+          color: Colors.grey.shade200.withValues(alpha: 0.92),
+          child: const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                color: AppTheme.accentBlue,
+                strokeWidth: 2.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final mapHeight = _mapAreaHeight(context);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -715,51 +825,46 @@ class _CallMapScreenState extends State<CallMapScreen> {
         ),
         title: const Text('대리호출', style: TextStyle(color: Colors.black87, fontSize: 18)),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            flex: _isDetailEditMode ? 1 : (_destination != null ? 3 : 6),
-            child: _CallMapView(
-              key: const ValueKey('call_map_view'),
-              isLoading: _isLoading,
-              kakaoOk: _kakaoOk,
-              initialMapPosition: _cameraCenter,
-              departure: _departure,
-              destination: _destination,
-              mapFocus: _mapFocus,
-              isDetailEditMode: _isDetailEditMode,
-              detailEditTarget: _detailEditTarget,
-              allowTouch: _isDetailEditMode,
-              onMapCreated: _onMapCreated,
-              onMapFocusChanged: _onMapFocusChanged,
-              onOpenDetailEdit: _openDetailEdit,
+      body: _isDetailEditMode
+          ? Stack(
+              children: [
+                Positioned.fill(child: _buildMapView()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildDetailEditBottomBar(context),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                SizedBox(
+                  height: mapHeight,
+                  child: _buildMapView(),
+                ),
+                Expanded(
+                  child: _CallBookingPanel(
+                    key: _bookingKey,
+                    departureAddr: _departureAddr,
+                    waypoints: List.unmodifiable(_waypoints),
+                    destination: _destination,
+                    destinationLabel: _destination != null
+                        ? _destinationDisplayLabel(_destination!)
+                        : null,
+                    distanceKm: _distanceKm,
+                    estimate: _estimate,
+                    isEstimateLoading: _isEstimateLoading,
+                    onDepartureTap: _openDepartureSearch,
+                    onDestinationTap: _openDestinationSearch,
+                    onAddWaypoint: _openWaypointSearch,
+                    onRemoveWaypoint: _removeWaypoint,
+                    onRefreshGps: _refreshToGps,
+                    onOpenCallFlow: _openCallOptionsThenConfirm,
+                  ),
+                ),
+              ],
             ),
-          ),
-          if (!_isDetailEditMode)
-            Expanded(
-              flex: _destination != null ? 7 : 4,
-              child: _CallBookingPanel(
-                key: _bookingKey,
-                departureAddr: _departureAddr,
-                waypoints: List.unmodifiable(_waypoints),
-                destination: _destination,
-                destinationLabel: _destination != null
-                    ? _destinationDisplayLabel(_destination!)
-                    : null,
-                distanceKm: _distanceKm,
-                estimate: _estimate,
-                isEstimateLoading: _isEstimateLoading,
-                onDepartureTap: _openDepartureSearch,
-                onDestinationTap: _openDestinationSearch,
-                onAddWaypoint: _openWaypointSearch,
-                onRemoveWaypoint: _removeWaypoint,
-                onRefreshGps: _refreshToGps,
-                onOpenCallFlow: _openCallOptionsThenConfirm,
-              ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: _isDetailEditMode ? _buildDetailEditBottomBar(context) : null,
     );
   }
 
@@ -768,7 +873,8 @@ class _CallMapScreenState extends State<CallMapScreen> {
         _destination != null ? _mapFocus : _MapFocus.departure;
     final target = _detailEditPinPosition;
     _cameraCenter = target;
-    setState(() => _isDetailEditMode = true);
+    _invalidatePinOffsets();
+
     final c = _mapController;
     if (c != null) {
       _isProgrammaticMove = true;
@@ -778,16 +884,14 @@ class _CallMapScreenState extends State<CallMapScreen> {
       );
       _isProgrammaticMove = false;
     }
-    if (mounted) setState(() {});
-    await _syncPinOverlays();
+    if (!mounted) return;
+    setState(() => _isDetailEditMode = true);
   }
 
   Future<void> _cancelDetailEdit() async {
     _cameraCenter = _focusedPinPosition;
-    setState(() {
-      _isDetailEditMode = false;
-      _detailEditTarget = null;
-    });
+    _invalidatePinOffsets();
+
     final c = _mapController;
     if (c != null) {
       _isProgrammaticMove = true;
@@ -797,42 +901,129 @@ class _CallMapScreenState extends State<CallMapScreen> {
       );
       _isProgrammaticMove = false;
     }
-    if (mounted) setState(() {});
-    await _syncPinOverlays();
+    if (!mounted) return;
+    setState(() {
+      _isDetailEditMode = false;
+      _detailEditTarget = null;
+    });
+    await _syncPinOverlays(immediate: true);
+  }
+
+  Future<LatLng> _resolveDetailEditLatLng() async {
+    final c = _mapController;
+    if (c != null) {
+      for (var attempt = 0; attempt < 4; attempt++) {
+        final center = await c.getCenter();
+        if (center != null) return center;
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+    }
+    return _cameraCenter;
   }
 
   Future<void> _confirmDetailEdit() async {
     final target = _detailEditTarget;
-    if (target == null) return;
-    final lat = _cameraCenter.latitude;
-    final lng = _cameraCenter.longitude;
-    final addr = await GeocodeApi.reverse(lat, lng);
-    final label = (addr != null && addr.trim().isNotEmpty)
-        ? addr.trim()
-        : '지도에서 선택한 위치';
+    if (target == null || _confirmingDetailEdit) return;
 
-    if (!mounted) return;
-    setState(() {
-      _depPinOffset = null;
-      _destPinOffset = null;
-      if (target == _MapFocus.departure) {
-        _departure = LatLng(latitude: lat, longitude: lng);
-        _departureAddr = label;
-        _departureCustomized = true;
-      } else {
-        _destination = PlaceSearchResult(
-          name: label,
-          address: addr?.trim() ?? label,
-          lat: lat,
-          lng: lng,
-          distance: null,
+    setState(() => _confirmingDetailEdit = true);
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return;
+
+      final picked = await _resolveDetailEditLatLng();
+      final lat = picked.latitude;
+      final lng = picked.longitude;
+      _cameraCenter = picked;
+
+      String? addr;
+      try {
+        addr = await GeocodeApi.reverse(lat, lng)
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        addr = null;
+      }
+
+      final label = (addr != null && addr.trim().isNotEmpty)
+          ? addr.trim()
+          : '지도에서 선택한 위치';
+
+      if (!mounted) return;
+
+      await _runMapSurfaceWork(() async {
+        setState(() {
+          _invalidatePinOffsets();
+          _mapFocus = target;
+          _cameraCenter = LatLng(latitude: lat, longitude: lng);
+
+          if (target == _MapFocus.departure) {
+            _departure = _cameraCenter;
+            _departureAddr = label;
+            _departureCustomized = true;
+          } else {
+            _destination = PlaceSearchResult(
+              name: label,
+              address: label,
+              lat: lat,
+              lng: lng,
+              distance: null,
+            );
+          }
+
+          _isDetailEditMode = false;
+          _detailEditTarget = null;
+        });
+
+        final c = _mapController;
+        if (c != null) {
+          _isProgrammaticMove = true;
+          await c.moveCamera(
+            cameraUpdate: CameraUpdate(
+              position: _cameraCenter,
+              zoomLevel: _lockedZoomLevel,
+            ),
+            animation: const CameraAnimation(
+              duration: 80,
+              autoElevation: true,
+              isConsecutive: false,
+            ),
+          );
+          _isProgrammaticMove = false;
+        }
+        await _syncPinOverlays(immediate: true);
+      });
+
+      if (_destination != null) _scheduleEstimateFetch();
+
+      if (mounted) {
+        if (addr == null || addr.trim().isEmpty) {
+          showTopAppNotice(
+            context,
+            title: '위치 저장됨',
+            message: '주소를 불러오지 못해 선택 위치명으로 저장했습니다.',
+            type: TopAppNoticeType.warning,
+          );
+        } else {
+          showTopAppNotice(
+            context,
+            title: target == _MapFocus.departure ? '출발지 변경' : '도착지 변경',
+            message: label,
+            type: TopAppNoticeType.success,
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        showTopAppNotice(
+          context,
+          title: '저장 실패',
+          message: '위치 저장에 실패했습니다. 다시 시도해 주세요.',
+          type: TopAppNoticeType.error,
         );
       }
-      _isDetailEditMode = false;
-      _detailEditTarget = null;
-    });
-    if (_destination != null) _scheduleEstimateFetch();
-    await _syncPinOverlays();
+    } finally {
+      if (mounted) setState(() => _confirmingDetailEdit = false);
+    }
   }
 
   String _destinationDisplayLabel(PlaceSearchResult d) {
@@ -857,7 +1048,7 @@ class _CallMapScreenState extends State<CallMapScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _cancelDetailEdit,
+                  onPressed: _confirmingDetailEdit ? null : _cancelDetailEdit,
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -871,20 +1062,29 @@ class _CallMapScreenState extends State<CallMapScreen> {
               Expanded(
                 flex: 2,
                 child: FilledButton(
-                  onPressed: () => _confirmDetailEdit(),
+                  onPressed: _confirmingDetailEdit ? null : _confirmDetailEdit,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.accentBlue,
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    minimumSize: const Size(0, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   ),
-                  child: Text(
-                    isDeparture ? '이 위치로 출발지' : '이 위치로 도착지',
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: _confirmingDetailEdit
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          isDeparture ? '이 위치로 출발지' : '이 위치로 도착지',
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                 ),
               ),
             ],
@@ -1395,6 +1595,8 @@ class _AddressRow extends StatelessWidget {
     required this.label,
     required this.text,
     this.compact = false,
+    this.accentColor,
+    this.stopNumber,
     this.onTap,
     this.onRefresh,
     this.onDelete,
@@ -1403,31 +1605,60 @@ class _AddressRow extends StatelessWidget {
   final String label;
   final String text;
   final bool compact;
+  final Color? accentColor;
+  final int? stopNumber;
   final VoidCallback? onTap;
   final VoidCallback? onRefresh;
   final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
+    final accent = accentColor ?? AppTheme.accentBlue;
+    final isWaypoint = stopNumber != null;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: 10,
-          vertical: compact ? 7 : 10,
+          vertical: compact ? 8 : 10,
         ),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: isWaypoint
+              ? accent.withValues(alpha: 0.1)
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(10),
+          border: isWaypoint
+              ? Border.all(color: accent.withValues(alpha: 0.45), width: 1.5)
+              : null,
         ),
         child: Row(
           children: [
+            if (stopNumber != null) ...[
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: Text(
+                  '$stopNumber',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const Gap(8),
+            ],
             Expanded(
               child: Text(
                 '$label : $text',
                 key: ValueKey('$label-$text'),
-                style: TextStyle(fontSize: compact ? 13 : 14),
+                style: TextStyle(
+                  fontSize: compact ? 13 : 14,
+                  fontWeight: isWaypoint ? FontWeight.w600 : FontWeight.w400,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

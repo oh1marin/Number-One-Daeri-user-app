@@ -102,10 +102,22 @@ class _CallBookingPanelState extends State<_CallBookingPanel> {
     final destText = widget.destinationLabel ??
         destination?.name ??
         '도착 : 어디로 가세요?';
+    final routeSummary = destination != null
+        ? buildRouteSummaryText(
+            pickup: widget.departureAddr,
+            waypoints: widget.waypoints,
+            dropoff: destText.replaceFirst('도착 : ', ''),
+          )
+        : null;
+
+    final hasWaypoints = widget.waypoints.isNotEmpty;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: hasWaypoints ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -123,30 +135,69 @@ class _CallBookingPanelState extends State<_CallBookingPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (hasWaypoints && routeSummary != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _kPinWaypointOrange.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _kPinWaypointOrange.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      PhosphorIcon(
+                        PhosphorIconsRegular.mapTrifold,
+                        size: 16,
+                        color: _kPinWaypointOrange,
+                      ),
+                      const Gap(8),
+                      Expanded(
+                        child: Text(
+                          routeSummary,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            height: 1.35,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(6),
+              ],
               _AddressRow(
                 label: '출발',
                 text: widget.departureAddr,
                 onTap: widget.onDepartureTap,
                 onRefresh: widget.onRefreshGps,
+                compact: hasWaypoints,
               ),
               for (var i = 0; i < widget.waypoints.length; i++) ...[
-                const Gap(6),
+                const Gap(4),
                 _AddressRow(
                   label: '경유',
                   text: widget.waypoints[i].name,
                   compact: true,
+                  accentColor: _kPinWaypointOrange,
+                  stopNumber: i + 1,
                   onDelete: () => widget.onRemoveWaypoint(i),
                 ),
               ],
-              const Gap(6),
+              const Gap(4),
               Text(
                 '어디로 모실까요?',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
                     ),
               ),
-              const Gap(6),
+              const Gap(4),
               InkWell(
                 onTap: widget.onDestinationTap,
                 borderRadius: BorderRadius.circular(12),
@@ -173,8 +224,7 @@ class _CallBookingPanelState extends State<_CallBookingPanel> {
                                 ? '${destination.lat}_${destination.lng}_$destText'
                                 : 'dest-empty',
                           ),
-                          style: TextStyle(
-                            fontSize: 13,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: destination != null
                                 ? Colors.black87
                                 : Colors.grey.shade600,
@@ -184,7 +234,15 @@ class _CallBookingPanelState extends State<_CallBookingPanel> {
                       if (widget.waypoints.length < _kMaxWaypoints)
                         TextButton(
                           onPressed: widget.onAddWaypoint,
-                          child: const Text('경유', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _kPinWaypointOrange,
+                          ),
+                          child: Text(
+                            '+ 경유',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                     ],
                   ),

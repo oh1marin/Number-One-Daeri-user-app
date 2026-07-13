@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/complaints_api.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
 import '../../widgets/app_loading_indicator.dart';
 
@@ -71,25 +72,19 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('불편신고', style: TextStyle(color: Colors.black87)),
-      ),
+      backgroundColor: AppTheme.surfaceGrey,
+      appBar: AppBar(title: const Text('불편신고')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: AppTheme.pagePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 상단 안내 카드
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
+                color: AppTheme.primaryDark.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                border: Border.all(color: AppTheme.borderGrey),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,12 +92,12 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
+                      color: AppTheme.primaryDark.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: PhosphorIcon(
+                    child: const PhosphorIcon(
                       PhosphorIconsRegular.warning,
-                      color: Colors.orange.shade800,
+                      color: AppTheme.primaryDark,
                       size: 24,
                     ),
                   ),
@@ -113,20 +108,15 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                       children: [
                         Text(
                           '불편 사항을 신고해 주세요',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange.shade900,
-                          ),
+                          style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const Gap(8),
                         Text(
                           '운행 중 불편한 점, 기사님 관련 민원 등을 남겨주시면 검토 후 연락드립니다. 신고 내용은 익명으로 처리됩니다.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade700,
-                            height: 1.5,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFF4B5563),
+                                height: 1.5,
+                              ),
                         ),
                       ],
                     ),
@@ -135,31 +125,19 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
               ),
             ),
             const Gap(24),
-            // 입력 폼
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                border: Border.all(color: AppTheme.borderGrey),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '불편 사항',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade800,
-                    ),
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const Gap(12),
                   TextField(
@@ -171,14 +149,6 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                       hintText: _loggedIn
                           ? '불편했던 사항을 구체적으로 적어 주세요.\n(일시, 장소, 상황 등)'
                           : '로그인이 필요합니다.',
-                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
                     ),
                   ),
                 ],
@@ -189,18 +159,24 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
+                  color: AppTheme.accentYellow.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusInput),
+                  border: Border.all(color: AppTheme.borderGrey),
                 ),
                 child: Row(
                   children: [
-                    PhosphorIcon(PhosphorIconsRegular.warningCircle, color: Colors.amber.shade800, size: 20),
+                    const PhosphorIcon(
+                      PhosphorIconsRegular.warningCircle,
+                      color: AppTheme.primaryDark,
+                      size: 20,
+                    ),
                     const Gap(10),
                     Expanded(
                       child: Text(
                         '로그인 후 신고하실 수 있습니다.',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.primaryDark,
+                            ),
                       ),
                     ),
                   ],
@@ -221,12 +197,10 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                     : PhosphorIcon(PhosphorIconsRegular.paperPlaneTilt, color: Colors.white, size: 20),
                 label: Text(_loading ? '접수 중...' : '신고하기'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.orange.shade600,
+                  backgroundColor: AppTheme.primaryDark,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  disabledForegroundColor: Colors.grey.shade600,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusButton),
                   ),
                 ),
               ),

@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../utils/payment_guard.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
 import 'card_register_payment_screen.dart';
@@ -166,53 +167,39 @@ class _CardScreenState extends State<CardScreen> {
     return ConnectivityReconnectListener(
       onReconnect: _load,
       child: Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('카드등록', style: TextStyle(color: Colors.black87)),
-      ),
+      appBar: AppBar(title: const Text('카드등록')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppPageLoading()
           : _loadError != null
               ? LoadErrorView(message: _loadError!, onRetry: _load)
               : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: AppTheme.pagePadding,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '카드 추가',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _cardNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: '카드명 (예: 우리카드 끝자리 1234)',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _expiryController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: '유효기간 (MM/YY)',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _optionController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: '옵션 (영수증 발급 시 필요)',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                   const SizedBox(height: 12),

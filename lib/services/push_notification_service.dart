@@ -88,6 +88,20 @@ class PushNotificationService {
     return prefs.getBool(_prefEnabledKey) ?? true;
   }
 
+  /// 푸시 알림 수신 여부 (공지·설정 화면 공통).
+  static Future<bool> isNotificationEnabled() => _isEnabled();
+
+  /// 푸시 알림 on/off — 백엔드 토큰도 함께 동기화.
+  static Future<void> setNotificationEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefEnabledKey, enabled);
+    if (enabled) {
+      await syncTokenToBackend();
+    } else {
+      await deleteTokenFromBackend();
+    }
+  }
+
   static Future<void> syncTokenToBackend({String? tokenOverride}) async {
     final token = tokenOverride ?? await FirebaseMessaging.instance.getToken();
     if (token == null || token.isEmpty) return;

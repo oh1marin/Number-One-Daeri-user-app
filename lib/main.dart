@@ -141,7 +141,7 @@ class MyApp extends StatelessWidget {
         if (child == null) return const SizedBox.shrink();
         final mq = MediaQuery.of(context);
         return MediaQuery(
-          data: mq.copyWith(textScaler: ResponsiveLayout.clampedTextScaler(context)),
+          data: mq.copyWith(textScaler: ResponsiveLayout.appTextScaler(context)),
           child: ConnectivityBannerScope(child: child),
         );
       },

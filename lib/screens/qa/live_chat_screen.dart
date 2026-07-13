@@ -72,10 +72,12 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
   final Set<String> _backendIds = {};
 
   bool _initializing    = true;
+  bool _initFailed      = false;
   bool _sending         = false;
   bool _loggedIn        = false;
   bool _closed          = false;
   bool _agentRequested  = false; // 상담사 호출 여부
+  bool _requestingAgent = false;
 
   Timer? _pollTimer;
   static const _pollInterval = Duration(seconds: 8);
@@ -123,35 +125,45 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
   // ── 초기화 ──────────────────────────────────────────────────────────────────
 
   Future<void> _init() async {
-    _loggedIn = await AuthService.isLoggedIn();
-    if (!mounted) return;
-    if (!_loggedIn) { setState(() => _initializing = false); return; }
+    try {
+      _loggedIn = await AuthService.isLoggedIn();
+      if (!mounted) return;
+      if (!_loggedIn) return;
 
-    // 진입할 때마다 새 세션 생성 (이전 대화 초기화)
-    final session = await InquiryApi.create();
-    if (!mounted) return;
-    if (session == null) {
-      setState(() => _initializing = false);
-      showErrorSnackBar(context, '채팅을 시작할 수 없습니다.');
-      return;
-    }
+      // 진입할 때마다 새 세션 생성 (이전 대화 초기화)
+      final session = await InquiryApi.create();
+      if (!mounted) return;
+      if (session == null) {
+        _initFailed = true;
+        showErrorSnackBar(context, '채팅을 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
 
-    _session = session;
-    _closed  = session.isClosed;
+      _initFailed = false;
 
-    // 첫 인사
-    _addLocal(_Msg(
-      id: 'greeting',
-      content: '안녕하세요! 일등대리 AI 상담원입니다 😊\n요금, 쿠폰, 마일리지 등 궁금한 점을 편하게 물어보세요.',
-      type: _MsgType.ai,
-      time: DateTime.now(),
-    ));
+      _session = session;
+      _closed = session.isClosed;
 
-    setState(() => _initializing = false);
+      // 첫 인사
+      _addLocal(_Msg(
+        id: 'greeting',
+        content:
+            '안녕하세요! 일등대리 AI 상담원입니다 😊\n요금, 쿠폰, 마일리지 등 궁금한 점을 편하게 물어보세요.\n\n실제 상담원 연결이 필요하시면 입력창 옆 「상담원 호출」 버튼을 눌러 주세요.',
+        type: _MsgType.ai,
+        time: DateTime.now(),
+      ));
 
-    if (!_closed) {
-      _startPolling();
-      _fetchAdminMessages(initial: true);
+      if (!_closed) {
+        _startPolling();
+        _fetchAdminMessages(initial: true);
+      }
+    } catch (_) {
+      _initFailed = true;
+      if (mounted) {
+        showErrorSnackBar(context, '채팅 연결에 실패했습니다. 네트워크를 확인해 주세요.');
+      }
+    } finally {
+      if (mounted) setState(() => _initializing = false);
     }
   }
 
@@ -260,7 +272,19 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
       });
       _scrollToBottom();
     } catch (_) {
-      if (mounted) setState(() => _messages.removeWhere((m) => m.id == thinkingId));
+      if (!mounted) return;
+      setState(() {
+        _messages.removeWhere((m) => m.id == thinkingId);
+        _messages.add(_Msg(
+          id: 'ai_err_${DateTime.now().millisecondsSinceEpoch}',
+          content:
+              'AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도하거나 상담사 호출을 이용해 주세요.',
+          type: _MsgType.ai,
+          time: DateTime.now(),
+          needsHandoff: true,
+        ));
+      });
+      _scrollToBottom();
     }
   }
 
@@ -289,6 +313,50 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _requestInstantCounseling() async {
+    if (_agentRequested || _requestingAgent || _session == null || _closed) return;
+    setState(() => _requestingAgent = true);
+    try {
+      await InquiryApi.sendMessage(
+        _session!.id,
+        '[상담사 호출 요청] 고객이 즉시 상담을 요청했습니다.',
+      );
+      if (mounted) _onAgentRequested();
+    } catch (_) {
+      if (mounted) {
+        showErrorSnackBar(context, '상담 연결 요청에 실패했습니다. 다시 시도해 주세요.');
+      }
+    } finally {
+      if (mounted) setState(() => _requestingAgent = false);
+    }
+  }
+
+  Future<void> _showAgentCallDialog() async {
+    if (_agentRequested || _requestingAgent || _closed || !_loggedIn) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('상담원 호출'),
+        content: const Text('실제 상담원에게 연결을 요청할까요?\n잠시 후 상담원이 응답합니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('호출'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _requestInstantCounseling();
+    }
+  }
+
   // ── 빌드 ────────────────────────────────────────────────────────────────────
 
   @override
@@ -300,7 +368,9 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
           ? const Center(child: AppLoadingIndicator())
           : !_loggedIn
               ? _buildLoginRequired()
-              : Column(
+              : _initFailed || _session == null
+                  ? _buildInitFailed()
+                  : Column(
                   children: [
                     if (_closed) _ClosedBanner(),
                     Expanded(child: _buildList()),
@@ -313,9 +383,6 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
   AppBar _buildAppBar() {
     final isAgent = _agentRequested;
     return AppBar(
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black87,
-      elevation: 0,
       titleSpacing: 0,
       title: Row(
         children: [
@@ -453,6 +520,13 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
                 ),
               ),
             ),
+            if (!disabled && !_agentRequested) ...[
+              const Gap(6),
+              _AgentCallInputButton(
+                loading: _requestingAgent,
+                onTap: _showAgentCallDialog,
+              ),
+            ],
             const Gap(8),
             GestureDetector(
               onTap: (!disabled && !_sending) ? _send : null,
@@ -499,6 +573,127 @@ class _LiveChatScreenState extends State<LiveChatScreen> with WidgetsBindingObse
           ],
         ),
       );
+
+  Widget _buildInitFailed() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(PhosphorIconsRegular.wifiSlash, size: 48, color: Colors.grey.shade300),
+              const Gap(16),
+              Text(
+                'AI 상담에 연결하지 못했습니다.',
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(8),
+              Text(
+                '네트워크 또는 서버 상태를 확인한 뒤 다시 시도해 주세요.',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+              const Gap(20),
+              FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _initializing = true;
+                    _initFailed = false;
+                    _messages.clear();
+                    _backendIds.clear();
+                    _session = null;
+                  });
+                  _init();
+                },
+                child: const Text('다시 연결'),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+// ── 입력창 옆 상담원 호출 버튼 ───────────────────────────────────────────────
+
+class _AgentCallInputButton extends StatelessWidget {
+  const _AgentCallInputButton({
+    required this.loading,
+    required this.onTap,
+  });
+
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          gradient: loading
+              ? null
+              : const LinearGradient(
+                  colors: [Color(0xFFFF9800), Color(0xFFE65100)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          color: loading ? Colors.grey.shade200 : null,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: loading
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.orange.withValues(alpha: 0.28),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: loading
+            ? const SizedBox(
+                width: 36,
+                child: Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFE65100),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              )
+            : const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.support_agent,
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                  Gap(1),
+                  Text(
+                    '상담원\n호출',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 9,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 // ── 배너 ─────────────────────────────────────────────────────────────────────

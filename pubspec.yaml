@@ -21,7 +21,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # - `+<buildNumber>` is the Android `versionCode`.
 # - Every upload MUST use a NEW, higher buildNumber (Play will reject duplicates).
 # - Recommended: use yyyymmddNN (e.g. 2026042001) and increment NN for multiple builds in a day.
-version: 1.0.0+2026060905
+version: 1.0.0+2026071301
 
 environment:
   sdk: ^3.11.1

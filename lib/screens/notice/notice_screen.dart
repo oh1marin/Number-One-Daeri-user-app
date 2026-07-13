@@ -5,12 +5,15 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../api/notices_api.dart';
 import '../../config/media_url.dart';
-import '../../theme/app_theme.dart';
 import '../../services/content_read_store.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/responsive_layout.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/connectivity_banner.dart';
+import '../../widgets/content_feed_widgets.dart';
 import '../../widgets/load_error_view.dart';
+import '../../widgets/notification_toggle_card.dart';
 
 class NoticeScreen extends StatefulWidget {
   const NoticeScreen({super.key});
@@ -21,6 +24,7 @@ class NoticeScreen extends StatefulWidget {
 
 class _NoticeScreenState extends State<NoticeScreen> {
   List<Notice> _items = [];
+  Set<String> _readIds = {};
   bool _loading = true;
   String? _error;
 
@@ -36,10 +40,14 @@ class _NoticeScreenState extends State<NoticeScreen> {
       _error = null;
     });
     try {
-      final list = await NoticesApi.getList();
+      final results = await Future.wait([
+        NoticesApi.getList(),
+        ContentReadStore.noticeReadIds(),
+      ]);
       if (mounted) {
         setState(() {
-          _items = list;
+          _items = results[0] as List<Notice>;
+          _readIds = results[1] as Set<String>;
           _loading = false;
         });
       }
@@ -54,8 +62,16 @@ class _NoticeScreenState extends State<NoticeScreen> {
     }
   }
 
+  Future<void> _openDetail(Notice notice) async {
+    await ContentReadStore.markNoticeRead(notice.id);
+    if (mounted) {
+      setState(() => _readIds = {..._readIds, notice.id});
+    }
+    if (!mounted) return;
+    _showDetail(context, notice);
+  }
+
   void _showDetail(BuildContext context, Notice notice) {
-    ContentReadStore.markNoticeRead(notice.id);
     final heroUrl =
         resolveMediaUrl(notice.coverImageUrl) ??
         resolveMediaUrl(notice.imageUrl);
@@ -65,13 +81,13 @@ class _NoticeScreenState extends State<NoticeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
+        initialChildSize: 0.65,
+        minChildSize: 0.35,
+        maxChildSize: 0.92,
         builder: (_, controller) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: CustomScrollView(
             controller: controller,
@@ -80,18 +96,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Gap(12),
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const Gap(16),
+                    const ContentDetailSheetHandle(),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
@@ -99,7 +104,7 @@ class _NoticeScreenState extends State<NoticeScreen> {
                         children: [
                           if (heroUrl != null) ...[
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               child: AspectRatio(
                                 aspectRatio: 16 / 9,
                                 child: AppNetworkImage(
@@ -112,122 +117,77 @@ class _NoticeScreenState extends State<NoticeScreen> {
                           ],
                           if (notice.badge.isNotEmpty)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.accentBlue.withValues(
-                                    alpha: 0.15,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  notice.badge,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.accentBlue,
-                                  ),
-                                ),
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: ContentBadgeChip(
+                                label: notice.badge,
+                                badgeColor: notice.badgeColor,
                               ),
                             ),
                           Text(
                             notice.title,
                             style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.primaryDark,
+                              letterSpacing: -0.4,
+                              height: 1.3,
                             ),
                           ),
-                          const Gap(8),
+                          const Gap(10),
                           Row(
                             children: [
+                              PhosphorIcon(
+                                PhosphorIconsRegular.calendarBlank,
+                                size: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                              const Gap(4),
                               Text(
                                 notice.date,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                               if (notice.views > 0) ...[
-                                const Gap(12),
+                                const Gap(14),
+                                PhosphorIcon(
+                                  PhosphorIconsRegular.eye,
+                                  size: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                const Gap(4),
                                 Text(
                                   '조회 ${notice.views}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey.shade500,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
                             ],
                           ),
                           const Gap(20),
+                          const Divider(color: AppTheme.borderGrey, height: 1),
+                          const Gap(20),
                           Text(
                             notice.content,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 15,
-                              height: 1.6,
-                              color: Colors.grey.shade800,
+                              height: 1.65,
+                              color: Color(0xFF374151),
                             ),
                           ),
                           if (notice.events.isNotEmpty) ...[
-                            const Gap(24),
-                            Text(
-                              '이벤트',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            const Gap(28),
+                            const ContentSectionHeader(
+                              title: '관련 이벤트',
+                              subtitle: '이 공지와 함께 진행 중인 혜택',
                             ),
                             const Gap(12),
-                            ...notice.events.map((e) {
-                              final eventImg = resolveMediaUrl(e.imageUrl);
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (eventImg != null) ...[
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: AspectRatio(
-                                          aspectRatio: 16 / 9,
-                                          child: AppNetworkImage(
-                                            url: eventImg,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                      const Gap(10),
-                                    ],
-                                    Text(
-                                      e.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    if (e.date != null)
-                                      Text(
-                                        e.date!,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    if (e.desc != null)
-                                      Text(
-                                        e.desc!,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            }),
+                            ...notice.events.map((e) => _EmbeddedEventCard(event: e)),
                           ],
-                          const Gap(24),
+                          const Gap(32),
                         ],
                       ),
                     ),
@@ -243,61 +203,142 @@ class _NoticeScreenState extends State<NoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount =
+        _items.where((n) => n.id.isNotEmpty && !_readIds.contains(n.id)).length;
+    final hPad = ResponsiveLayout.pageHorizontal(context);
+    final bottomPad = ResponsiveLayout.bottomSafeInset(context, extra: 12);
+
     return ConnectivityReconnectListener(
       onReconnect: _load,
       child: Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('공지사항', style: TextStyle(color: Colors.black87)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
-      body: _loading
-          ? Skeletonizer(
-              enabled: true,
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: 5,
-                separatorBuilder: (_, __) => const Gap(12),
-                itemBuilder: (_, i) => _NoticeTile(
-                  title: '공지 제목입니다',
-                  date: '2024.01.01',
-                  onTap: null,
+        appBar: AppBar(
+          title: const Text('공지사항'),
+          actions: [
+            if (unreadCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '새글 $unreadCount',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            )
-          : _error != null
-          ? LoadErrorView(message: _error!, onRetry: _load)
-          : _items.isEmpty
-          ? _EmptyState()
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: _items.length,
-                separatorBuilder: (_, __) => const Gap(12),
-                itemBuilder: (_, i) {
-                  final n = _items[i];
-                  final thumb =
-                      resolveMediaUrl(n.coverImageUrl) ??
-                      resolveMediaUrl(n.imageUrl);
-                  return _NoticeTile(
-                    title: n.title,
-                    date: n.date,
-                    badge: n.badge,
-                    thumbnailUrl: thumb,
-                    onTap: () => _showDetail(context, n),
-                  );
-                },
-              ),
+            IconButton(
+              icon: const PhosphorIcon(PhosphorIconsRegular.arrowsClockwise),
+              onPressed: _loading ? null : _load,
             ),
-    ),
+          ],
+        ),
+        body: _loading
+            ? Skeletonizer(
+                enabled: true,
+                child: ListView(
+                  padding: EdgeInsets.only(bottom: bottomPad),
+                  children: [
+                    const _NoticeHeroBanner(),
+                    const Gap(12),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: hPad),
+                      child: const NotificationToggleCard(compact: true),
+                    ),
+                    const Gap(16),
+                    ...List.generate(
+                      4,
+                      (i) => Padding(
+                        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 10),
+                        child: _NoticeTile(
+                          title: '공지 제목입니다',
+                          date: '2026.06.05',
+                          badge: '공지',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : _error != null
+            ? LoadErrorView(message: _error!, onRetry: _load)
+            : _items.isEmpty
+            ? const ContentEmptyState(
+                icon: PhosphorIconsRegular.megaphone,
+                title: '등록된 공지사항이 없습니다.',
+                subtitle: '새 소식이 등록되면 여기에 표시됩니다.',
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView.separated(
+                  padding: EdgeInsets.only(bottom: bottomPad),
+                  itemCount: _items.length + 3,
+                  separatorBuilder: (_, i) {
+                    if (i == 0) return const Gap(12);
+                    if (i == 1) return const Gap(12);
+                    return const Gap(10);
+                  },
+                  itemBuilder: (_, i) {
+                    if (i == 0) return const _NoticeHeroBanner();
+                    if (i == 1) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPad),
+                        child: const NotificationToggleCard(compact: true),
+                      );
+                    }
+                    if (i == 2) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPad),
+                        child: const ContentSectionHeader(
+                          title: '전체 공지',
+                          subtitle: '운영 안내·이벤트 소식을 확인하세요',
+                        ),
+                      );
+                    }
+                    final n = _items[i - 3];
+                    final thumb =
+                        resolveMediaUrl(n.coverImageUrl) ??
+                        resolveMediaUrl(n.imageUrl);
+                    final isUnread =
+                        n.id.isNotEmpty && !_readIds.contains(n.id);
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: hPad),
+                      child: _NoticeTile(
+                        title: n.title,
+                        date: n.date,
+                        badge: n.badge,
+                        badgeColor: n.badgeColor,
+                        thumbnailUrl: thumb,
+                        isUnread: isUnread,
+                        onTap: () => _openDetail(n),
+                      ),
+                    );
+                  },
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _NoticeHeroBanner extends StatelessWidget {
+  const _NoticeHeroBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ContentHeroBanner(
+      icon: PhosphorIconsRegular.megaphone,
+      title: '일등대리 공지사항',
+      subtitle: '서비스 운영·이벤트·혜택 소식을\n가장 빠르게 확인하세요',
+      gradient: [AppTheme.primaryDark, Color(0xFF1A3A8F)],
     );
   }
 }
@@ -307,103 +348,172 @@ class _NoticeTile extends StatelessWidget {
     required this.title,
     required this.date,
     this.badge,
+    this.badgeColor,
     this.thumbnailUrl,
+    this.isUnread = false,
     this.onTap,
   });
 
   final String title;
   final String date;
   final String? badge;
+  final String? badgeColor;
   final String? thumbnailUrl;
+  final bool isUnread;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return ContentListCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            if (thumbnailUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: AppNetworkImage(url: thumbnailUrl!, fit: BoxFit.cover),
-                ),
-              )
-            else
-              PhosphorIcon(
-                PhosphorIconsRegular.megaphone,
-                size: 20,
-                color: Colors.grey.shade600,
+      isUnread: isUnread,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (thumbnailUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 52,
+                height: 52,
+                child: AppNetworkImage(url: thumbnailUrl!, fit: BoxFit.cover),
               ),
-            const Gap(12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (badge != null && badge!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        badge!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.accentBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
+            )
+          else
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceGrey,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const PhosphorIcon(
+                PhosphorIconsRegular.megaphone,
+                size: 24,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          const Gap(12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (badge != null && badge!.isNotEmpty) ...[
+                      ContentBadgeChip(
+                        label: badge!,
+                        badgeColor: badgeColor,
+                        compact: true,
+                      ),
+                      const Gap(6),
+                    ],
+                    if (isUnread) const ContentUnreadDot(),
+                  ],
+                ),
+                if (badge != null && badge!.isNotEmpty) const Gap(6),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.primaryDark,
+                    height: 1.3,
+                  ),
+                ),
+                const Gap(6),
+                Row(
+                  children: [
+                    const PhosphorIcon(
+                      PhosphorIconsRegular.calendarBlank,
+                      size: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const Gap(4),
+                    Text(
+                      date,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
                       ),
                     ),
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  const Gap(4),
-                  Text(
-                    date,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-            PhosphorIcon(
-              PhosphorIconsRegular.caretRight,
-              size: 16,
-              color: Colors.grey.shade400,
-            ),
-          ],
-        ),
+          ),
+          const Gap(8),
+          const PhosphorIcon(
+            PhosphorIconsRegular.caretRight,
+            size: 16,
+            color: AppTheme.textSecondary,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmbeddedEventCard extends StatelessWidget {
+  const _EmbeddedEventCard({required this.event});
+
+  final NoticeEvent event;
+
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final eventImg = resolveMediaUrl(event.imageUrl);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderGrey),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PhosphorIcon(
-            PhosphorIconsRegular.megaphone,
-            size: 48,
-            color: Colors.grey.shade400,
-          ),
-          const Gap(16),
+          if (eventImg != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: AppNetworkImage(url: eventImg, fit: BoxFit.cover),
+              ),
+            ),
+            const Gap(10),
+          ],
           Text(
-            '등록된 공지사항이 없습니다.',
-            style: TextStyle(color: Colors.grey.shade600),
+            event.title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: AppTheme.primaryDark,
+            ),
           ),
+          if (event.date != null) ...[
+            const Gap(4),
+            Text(
+              event.date!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+          if (event.desc != null && event.desc!.isNotEmpty) ...[
+            const Gap(6),
+            Text(
+              event.desc!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4B5563),
+                height: 1.45,
+              ),
+            ),
+          ],
         ],
       ),
     );

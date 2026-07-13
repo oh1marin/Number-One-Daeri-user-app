@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../api/gifticon_api.dart';
 import '../../api/mileage_api.dart';
 import '../../models/gifticon.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/responsive_layout.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/gifticon/gifticon_widgets.dart';
 import '../../widgets/load_error_view.dart';
@@ -139,6 +142,8 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hPad = ResponsiveLayout.pageHorizontal(context);
+    final gridPad = (hPad - 2).clamp(12.0, 20.0);
     return ConnectivityReconnectListener(
       onReconnect: () => _load(forceRefresh: true),
       child: Scaffold(
@@ -180,7 +185,7 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
           ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppPageLoading()
             : _error != null
                 ? LoadErrorView(
                     message: _error!,
@@ -195,6 +200,7 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                           child: GifticonBalanceHeader(
                             balance: _balance,
                             gifticonSpendable: _gifticonSpendable,
+                            horizontalPadding: hPad,
                             onOrdersTap: () {
                               Navigator.push(
                                 context,
@@ -205,22 +211,22 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                             },
                           ),
                         ),
-                        const SliverToBoxAdapter(
+                        SliverToBoxAdapter(
                           child: Padding(
-                            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-                            child: SignupBonusMileageNotice(),
+                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 6),
+                            child: const SignupBonusMileageNotice(),
                           ),
                         ),
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                            padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 4),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     '마일리지로 기프티콘을 바로 교환하세요',
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       color: Colors.grey.shade700,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -229,18 +235,18 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                                 if (_products.isNotEmpty)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
+                                      horizontal: 8,
+                                      vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(color: AppTheme.borderGrey),
                                     ),
                                     child: Text(
                                       '${_filtered.length}개',
                                       style: const TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.primaryDark,
                                       ),
@@ -253,30 +259,34 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                         SliverToBoxAdapter(
                           child: GifticonCategoryChips(
                             selected: _category,
+                            horizontalPadding: hPad,
                             onSelected: (c) => setState(() => _category = c),
                           ),
                         ),
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 10),
                             child: TextField(
                               controller: _searchController,
                               onChanged: (v) => setState(() => _query = v),
+                              style: const TextStyle(fontSize: 13),
                               decoration: InputDecoration(
                                 hintText: '상품 검색',
+                                hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                                 filled: true,
                                 fillColor: Colors.white,
+                                isDense: true,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 12,
-                                  vertical: 10,
+                                  vertical: 8,
                                 ),
-                                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                                prefixIcon: const Icon(Icons.search_rounded, size: 18),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(color: AppTheme.borderGrey),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(color: AppTheme.borderGrey),
                                 ),
                               ),
@@ -286,75 +296,90 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                         if (_filtered.isEmpty)
                           SliverFillRemaining(
                             hasScrollBody: false,
-                            child: Center(
-                              child: Text(
-                                _products.isEmpty
-                                    ? '등록된 기프티콘 상품이 없습니다.'
+                            child: AppEmptyState(
+                              icon: _products.isEmpty
+                                  ? PhosphorIconsRegular.gift
+                                  : (_query.trim().isNotEmpty
+                                      ? PhosphorIconsRegular.magnifyingGlass
+                                      : PhosphorIconsRegular.tag),
+                              title: _products.isEmpty
+                                  ? '등록된 기프티콘 상품이 없습니다.'
                                   : (_query.trim().isNotEmpty
                                       ? '검색 결과가 없습니다.'
                                       : '해당 카테고리 상품이 없습니다.'),
-                                style: const TextStyle(color: AppTheme.textSecondary),
-                              ),
+                              subtitle: _query.trim().isNotEmpty
+                                  ? '다른 검색어로 다시 찾아보세요.'
+                                  : '잠시 후 다시 확인해 주세요.',
                             ),
                           )
                         else
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                            sliver: SliverList.separated(
-                              itemCount: _filtered.length,
-                              separatorBuilder: (context, index) => const Gap(16),
-                              itemBuilder: (context, index) {
-                                final p = _filtered[index];
-                                return TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: 1),
-                                  duration: Duration(
-                                    milliseconds: (220 + (index * 30))
-                                        .clamp(0, 450)
-                                        .toInt(),
-                                  ),
-                                  curve: Curves.easeOut,
-                                  builder: (context, v, child) {
-                                    final dy = (1 - v) * 14;
-                                    return Opacity(
-                                      opacity: v,
-                                      child: Transform.translate(
-                                        offset: Offset(0, dy),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
+                            padding: EdgeInsets.fromLTRB(gridPad, 0, gridPad, 12),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 8,
+                                crossAxisSpacing: 8,
+                                childAspectRatio: 0.66,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final p = _filtered[index];
+                                  return TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: 1),
+                                    duration: Duration(
+                                      milliseconds: (180 + (index * 25))
+                                          .clamp(0, 400)
+                                          .toInt(),
+                                    ),
+                                    curve: Curves.easeOut,
+                                    builder: (context, v, child) {
+                                      final dy = (1 - v) * 10;
+                                      return Opacity(
+                                        opacity: v,
+                                        child: Transform.translate(
+                                          offset: Offset(0, dy),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
                                     child: GifticonProductCard(
                                       product: p,
-                                      canAfford: _gifticonSpendable >= p.mileagePrice,
+                                      compact: true,
+                                      canAfford:
+                                          _gifticonSpendable >= p.mileagePrice,
                                       onTap: () => _openProduct(p),
                                     ),
-                                );
-                              },
+                                  );
+                                },
+                                childCount: _filtered.length,
+                              ),
                             ),
                           ),
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 0),
                             child: Container(
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: Colors.blue.shade100),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.info_outline_rounded, size: 18, color: Colors.blue.shade700),
-                                  const Gap(10),
+                                  Icon(Icons.info_outline_rounded, size: 16, color: Colors.blue.shade700),
+                                  const Gap(8),
                                   Expanded(
                                     child: Text(
                                       '교환 완료 후 등록된 휴대폰으로 기프티콘이 발송됩니다. '
                                       '유효기간은 발송일로부터 30일이며, 미사용 시 환불되지 않습니다.',
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         color: Colors.blue.shade900,
-                                        height: 1.45,
+                                        height: 1.4,
                                       ),
                                     ),
                                   ),
@@ -363,6 +388,7 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                             ),
                           ),
                         ),
+                        const SliverToBoxAdapter(child: AppScrollSafeGap(extra: 12)),
                       ],
                     ),
                   ),

@@ -13,12 +13,19 @@ class InquiryApi {
 
   /// 새 문의 세션 생성 → { id, status, createdAt }
   static Future<InquirySession?> create({String? initialMessage}) async {
-    final body = initialMessage != null ? {'content': initialMessage} : <String, dynamic>{};
-    final res = await ApiClient.post(_base, body);
-    final map = res.data as Map<String, dynamic>?;
-    final data = map?['data'] as Map<String, dynamic>? ?? map;
-    if (data == null) return null;
-    return InquirySession.fromJson(data);
+    try {
+      final body =
+          initialMessage != null ? {'content': initialMessage} : <String, dynamic>{};
+      final res = await ApiClient.post(_base, body);
+      final map = res.data as Map<String, dynamic>?;
+      final data = map?['data'] as Map<String, dynamic>? ?? map;
+      if (data == null) return null;
+      return InquirySession.fromJson(data);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[InquiryApi] create failed: $e');
+      return null;
+    }
   }
 
   /// 진행 중인 문의 조회. 없으면 null 반환

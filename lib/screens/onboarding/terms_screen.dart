@@ -130,7 +130,7 @@ class _TermsScreenState extends State<TermsScreen> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.accentYellow,
-                    foregroundColor: Colors.black87,
+                    foregroundColor: AppTheme.primaryDark,
                   ),
                   child: const Text('동의하기'),
                 ),

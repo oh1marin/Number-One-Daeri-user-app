@@ -7,6 +7,7 @@ import '../../api/referral_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_share_text.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
 
@@ -73,15 +74,10 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
     return ConnectivityReconnectListener(
       onReconnect: _load,
       child: Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        title: const Text('추천인 현황', style: TextStyle(color: Colors.black87)),
-      ),
+      backgroundColor: AppTheme.surfaceGrey,
+      appBar: AppBar(title: const Text('추천인 현황')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppPageLoading()
           : _error != null
               ? LoadErrorView(message: _error!, onRetry: _load)
               : SingleChildScrollView(

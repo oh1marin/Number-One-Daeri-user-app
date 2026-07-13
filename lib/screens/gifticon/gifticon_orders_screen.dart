@@ -7,6 +7,7 @@ import '../../models/gifticon.dart';
 import '../../services/gifticon/gifticon_catalog.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/user_friendly_text.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
 
@@ -66,11 +67,24 @@ class _GifticonOrdersScreenState extends State<GifticonOrdersScreen> {
           ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const AppPageLoading()
             : _error != null
                 ? LoadErrorView(message: _error!, onRetry: _load)
                 : _orders.isEmpty
-                    ? _EmptyOrders()
+                    ? RefreshIndicator(
+                        onRefresh: _load,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 120),
+                            AppEmptyState(
+                              icon: PhosphorIconsRegular.receipt,
+                              title: '아직 교환한 기프티콘이 없습니다.',
+                              subtitle: '교환몰에서 마일리지로 기프티콘을 받아보세요.',
+                            ),
+                          ],
+                        ),
+                      )
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView.separated(
@@ -82,28 +96,6 @@ class _GifticonOrdersScreenState extends State<GifticonOrdersScreen> {
                           },
                         ),
                       ),
-      ),
-    );
-  }
-}
-
-class _EmptyOrders extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            PhosphorIcon(PhosphorIconsRegular.receipt, size: 48, color: Colors.grey.shade300),
-            const Gap(16),
-            Text(
-              '아직 교환한 기프티콘이 없습니다.',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../config/media_url.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_network_image.dart';
+import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
 
@@ -104,7 +105,7 @@ class _CouponScreenState extends State<CouponScreen> {
         physics: AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverFillRemaining(
-            child: Center(child: CircularProgressIndicator()),
+            child: AppPageLoading(),
           ),
         ],
       );
@@ -165,28 +166,10 @@ class _CouponScreenState extends State<CouponScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverToBoxAdapter(
               child: _StatusCard(
-                child: Column(
-                  children: [
-                    PhosphorIcon(
-                      PhosphorIconsRegular.gift,
-                      size: 44,
-                      color: Colors.grey.shade300,
-                    ),
-                    const Gap(12),
-                    const Text(
-                      '보유한 쿠폰이 없어요',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const Gap(4),
-                    Text(
-                      '친구를 추천하면 상품 쿠폰이 지급돼요!',
-                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                    ),
-                  ],
+                child: AppEmptyState(
+                  icon: PhosphorIconsRegular.gift,
+                  title: '보유한 쿠폰이 없어요',
+                  subtitle: '친구를 추천하면 상품 쿠폰이 지급돼요!',
                 ),
               ),
             ),

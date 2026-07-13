@@ -15,29 +15,31 @@ class GifticonBalanceHeader extends StatelessWidget {
     required this.balance,
     this.gifticonSpendable,
     this.onOrdersTap,
+    this.horizontalPadding = 20,
   });
 
   final int balance;
   final int? gifticonSpendable;
   final VoidCallback? onOrdersTap;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 6),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -85,19 +87,19 @@ class GifticonBalanceHeader extends StatelessWidget {
                 ),
             ],
           ),
-          const Gap(14),
+          const Gap(10),
           Text(
             gifticonSpendable != null && gifticonSpendable! < balance
                 ? '보유 마일리지'
                 : '교환 가능 마일리지',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
           ),
-          const Gap(4),
+          const Gap(2),
           Text(
             '${formatKrw(balance)}P',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
             ),
@@ -136,18 +138,20 @@ class GifticonCategoryChips extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    this.horizontalPadding = 20,
   });
 
   final GifticonCategory? selected;
   final ValueChanged<GifticonCategory?> onSelected;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 34,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         children: [
           _Chip(
             label: '전체',
@@ -187,10 +191,10 @@ class _Chip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? AppTheme.primaryDark : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppTheme.primaryDark : AppTheme.borderGrey,
           ),
@@ -198,7 +202,7 @@ class _Chip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
             color: selected ? Colors.white : AppTheme.primaryDark,
           ),
@@ -208,21 +212,141 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// 상품 카드 — 마켓형 1열 리스트 (큰 이미지 + 교환 CTA)
+/// 상품 카드 — 리스트(1열) / 그리드(2열) 공통
 class GifticonProductCard extends StatelessWidget {
   const GifticonProductCard({
     super.key,
     required this.product,
     required this.canAfford,
     required this.onTap,
+    this.compact = false,
   });
 
   final GifticonProduct product;
   final bool canAfford;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (compact) return _buildCompactCard();
+    return _buildListCard();
+  }
+
+  Widget _buildCompactCard() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: canAfford ? AppTheme.borderGrey : Colors.red.shade100,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              GifticonProductImage(
+                product: product,
+                height: 80,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: product.brandColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          product.brandLabel,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: product.brandColor.withValues(alpha: 0.95),
+                          ),
+                        ),
+                      ),
+                      const Gap(4),
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryDark,
+                          height: 1.2,
+                        ),
+                      ),
+                      if (product.subtitle.isNotEmpty) ...[
+                        const Gap(2),
+                        Text(
+                          product.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${formatKrw(product.mileagePrice)}P',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: canAfford
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.red.shade400,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          if (!canAfford) ...[
+                            const Gap(4),
+                            Text(
+                              '부족',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.red.shade500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListCard() {
     return Material(
       color: Colors.transparent,
       child: InkWell(

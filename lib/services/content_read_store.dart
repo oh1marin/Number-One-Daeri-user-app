@@ -31,6 +31,22 @@ class ContentReadStore {
     await _writeSet(_eventKey, set);
   }
 
+  static Future<Set<String>> noticeReadIds() => _readSet(_noticeKey);
+
+  static Future<Set<String>> eventReadIds() => _readSet(_eventKey);
+
+  static Future<bool> isNoticeRead(String id) async {
+    if (id.isEmpty) return true;
+    final read = await _readSet(_noticeKey);
+    return read.contains(id);
+  }
+
+  static Future<bool> isEventRead(String id) async {
+    if (id.isEmpty) return true;
+    final read = await _readSet(_eventKey);
+    return read.contains(id);
+  }
+
   static Future<int> unreadNoticeCount(Iterable<String> ids) async {
     final read = await _readSet(_noticeKey);
     return ids.where((id) => id.isNotEmpty && !read.contains(id)).length;
