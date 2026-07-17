@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../config/api_config.dart';
+import '../services/app_quality_service.dart';
 import '../services/auth_service.dart';
 import '../services/session_service.dart';
 
@@ -97,6 +98,13 @@ class ApiClient {
           }
 
           if (status != 401) {
+            if (status != null && status >= 500) {
+              AppQualityService.logNonFatal(
+                'API $status ${error.requestOptions.method} ${error.requestOptions.uri}',
+                error.stackTrace,
+                error.requestOptions.uri.path,
+              );
+            }
             return handler.next(error);
           }
 

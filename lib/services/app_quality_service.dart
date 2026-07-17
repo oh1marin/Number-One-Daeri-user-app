@@ -5,6 +5,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../api/error_reports_api.dart';
 import '../widgets/app_error_fallback.dart';
 
 /// Play 품질 지수(크래시·ANR·안정성) 개선용 부트스트랩.
@@ -72,11 +73,24 @@ class AppQualityService {
     Object error,
     StackTrace stack, {
     required bool fatal,
+    String? screen,
   }) {
     if (kDebugMode) {
       debugPrint('[AppQuality] ${fatal ? 'FATAL' : 'ERROR'}: $error');
-      return;
     }
+
+    unawaited(
+      ErrorReportsApi.report(
+        message: error.toString(),
+        stack: stack,
+        screen: screen,
+        source: 'flutter',
+        fatal: fatal,
+        platform: defaultTargetPlatform.name,
+      ),
+    );
+
+    if (kDebugMode) return;
     if (!_crashlyticsReady) return;
     unawaited(
       FirebaseCrashlytics.instance.recordError(
@@ -88,7 +102,7 @@ class AppQualityService {
   }
 
   /// 비치명 UI/네트워크 오류 등 — 크래시율 왜곡 방지용.
-  static void logNonFatal(Object error, [StackTrace? stack]) {
-    _recordError(error, stack ?? StackTrace.current, fatal: false);
+  static void logNonFatal(Object error, [StackTrace? stack, String? screen]) {
+    _recordError(error, stack ?? StackTrace.current, fatal: false, screen: screen);
   }
 }
