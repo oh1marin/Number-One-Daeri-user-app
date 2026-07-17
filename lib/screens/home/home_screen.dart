@@ -460,14 +460,7 @@ class _MainAppCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.all((20 * scale).clamp(14.0, 22.0)),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -477,120 +470,151 @@ class _MainAppCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentYellow,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      '24시간 앱 접수',
-                      style: TextStyle(
-                        color: AppTheme.primaryDark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/banner_call_bg.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primaryDark.withValues(alpha: 0.92),
+                        AppTheme.primaryDark.withValues(alpha: 0.72),
+                        AppTheme.primaryDark.withValues(alpha: 0.25),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
                   ),
-                  const Spacer(),
-                  Expanded(
-                    child: Container(
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all((20 * scale).clamp(14.0, 22.0)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentYellow,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '24시간 앱 접수',
+                            style: TextStyle(
+                              color: AppTheme.primaryDark,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const Gap(8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentYellow,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.credit_card_rounded,
+                                  color: AppTheme.primaryDark,
+                                  size: 14,
+                                ),
+                                const Gap(4),
+                                Flexible(
+                                  child: Text(
+                                    '카드 10% 적립',
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryDark,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                    maxLines: 2,
+                                    softWrap: true,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Gap(14 * scale),
+                    Text(
+                      '빠르고 안전한 대리운전',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: (20 * scale).clamp(16.0, 22.0),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Gap(6 * scale),
+                    Text(
+                      '지금 바로 출발지를 설정하고\n가까운 기사님을 배정받으세요.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: (13 * scale).clamp(12.0, 15.0),
+                        height: 1.5,
+                      ),
+                    ),
+                    Gap(14 * scale),
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                        horizontal: 18,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppTheme.accentYellow,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.credit_card_rounded,
-                            color: Colors.white.withValues(alpha: 0.85),
-                            size: 14,
-                          ),
-                          const Gap(4),
-                          Expanded(
-                            child: Text(
-                              '카드 결제 10% 적립',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 2,
-                              softWrap: true,
-                              textAlign: TextAlign.end,
-                              overflow: TextOverflow.ellipsis,
+                          const Text(
+                            '지금 바로 호출하기',
+                            style: TextStyle(
+                              color: AppTheme.primaryDark,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
                             ),
+                          ),
+                          const Gap(6),
+                          PhosphorIcon(
+                            PhosphorIconsRegular.arrowRight,
+                            color: AppTheme.primaryDark,
+                            size: 16,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              Gap(14 * scale),
-              Text(
-                '빠르고 안전한 대리운전',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: (20 * scale).clamp(16.0, 22.0),
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              Gap(6 * scale),
-              Text(
-                '지금 바로 출발지를 설정하고\n가까운 기사님을 배정받으세요.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: (13 * scale).clamp(12.0, 15.0),
-                  height: 1.5,
-                ),
-              ),
-              Gap(14 * scale),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentYellow,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      '지금 바로 호출하기',
-                      style: TextStyle(
-                        color: AppTheme.primaryDark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const Gap(6),
-                    PhosphorIcon(
-                      PhosphorIconsRegular.arrowRight,
-                      color: AppTheme.primaryDark,
-                      size: 16,
                     ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -606,28 +630,27 @@ class _TwoCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SmallCard(
-              icon: PhosphorIconsRegular.phone,
-              iconColor: const Color(0xFF4CAF50),
-              title: '전화로 부르기',
-              sub: '010-2184-8822',
-              onTap: () => showPhoneCallModal(context),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: _SmallCard(
+                icon: PhosphorIconsRegular.phone,
+                iconColor: const Color(0xFF4CAF50),
+                title: '전화로 부르기',
+                sub: '010-2184-8822',
+                onTap: () => showPhoneCallModal(context),
+              ),
             ),
-          ),
-          Gap(12 * ResponsiveLayout.homeScale(context)),
-          Expanded(
-            child: _SmallCard(
-              icon: PhosphorIconsRegular.plant,
-              iconColor: const Color(0xFFE91E8C),
-              title: '플라워',
-              sub: '전국 최저가',
-              onTap: () => _openFlowerUrl(),
+            Gap(12 * ResponsiveLayout.homeScale(context)),
+            Expanded(
+              child: _FlowerBannerCard(
+                onTap: () => _openFlowerUrl(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -639,6 +662,39 @@ class _TwoCards extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
     } catch (_) {}
+  }
+}
+
+class _FlowerBannerCard extends StatelessWidget {
+  const _FlowerBannerCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const _aspectRatio = 593 / 410;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderGrey),
+        ),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: AspectRatio(
+          aspectRatio: _aspectRatio,
+          child: Image.asset(
+            'assets/images/banner_flower.png',
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -730,7 +786,7 @@ class _FriendReferralBanner extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ResponsiveLayout.horizontalPadding(context)),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, '/referrer-status'),
+        onTap: () => Navigator.pushNamed(context, '/friend-invite'),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
@@ -859,7 +915,7 @@ class _ThreeFeatureCards extends StatelessWidget {
               icon: PhosphorIconsRegular.userPlus,
               label: '친구추천',
               color: const Color(0xFF1A2F7A),
-              onTap: () => Navigator.pushNamed(context, '/referrer-status'),
+              onTap: () => Navigator.pushNamed(context, '/friend-invite'),
             ),
           ),
           Gap(g),

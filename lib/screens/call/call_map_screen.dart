@@ -38,9 +38,11 @@ part 'call_map_booking_panel.dart';
 
 const LatLng _kSeoul = LatLng(latitude: 37.5665, longitude: 126.9780);
 
-/// 지도 영역 비율 — 기본은 약간 축소, 경유지 있을 때만 더 줄여 하단 패널 공간 확보
-const double _kMapBodyHeightFraction = 0.38;
-const double _kMapBodyHeightFractionWithWaypoints = 0.28;
+/// 지도 영역 비율 — 경유지가 늘수록 지도를 줄이고 하단 UI 영역 확보
+const double _kMapBodyHeightFraction = 0.40;
+const double _kMapBodyHeightFractionWithWaypoints = 0.30;
+const double _kMapShrinkPerWaypoint = 0.04;
+const double _kMapMinHeightFraction = 0.22;
 
 /// 지도 오버레이 핀 — 출발/도착 구분용 빨강 톤
 const Color _kPinDepartureRed = Color(0xFFE53935);
@@ -649,10 +651,15 @@ class _CallMapScreenState extends State<CallMapScreen> {
   double _mapAreaHeight(BuildContext context) {
     final media = MediaQuery.of(context);
     final bodyH = media.size.height - kToolbarHeight - media.padding.top;
-    final fraction = _waypoints.isNotEmpty
-        ? _kMapBodyHeightFractionWithWaypoints
-        : _kMapBodyHeightFraction;
+    final fraction = _mapHeightFraction();
     return bodyH * fraction;
+  }
+
+  double _mapHeightFraction() {
+    if (_waypoints.isEmpty) return _kMapBodyHeightFraction;
+    final extra = (_waypoints.length - 1) * _kMapShrinkPerWaypoint;
+    return (_kMapBodyHeightFractionWithWaypoints - extra)
+        .clamp(_kMapMinHeightFraction, _kMapBodyHeightFractionWithWaypoints);
   }
 
   void _invalidatePinOffsets() {
@@ -1743,14 +1750,31 @@ class _FareChip extends StatelessWidget {
                       color: c,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text('BEST', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'BEST',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ],
             ),
             const Gap(4),
-            Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            Text(isLoading ? '계산 중...' : '${_fmt(fare)}원', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: c)),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              isLoading ? '계산 중...' : '${_fmt(fare)}원',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: c,
+              ),
+            ),
           ],
         ),
       ),
@@ -1761,7 +1785,12 @@ class _FareChip extends StatelessWidget {
 }
 
 class _PayChip extends StatelessWidget {
-  const _PayChip({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _PayChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -1785,11 +1814,23 @@ class _PayChip extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              PhosphorIcon(icon, size: 18, color: selected ? AppTheme.accentBlue : Colors.grey),
+              PhosphorIcon(
+                icon,
+                size: 18,
+                color: selected ? AppTheme.accentBlue : Colors.grey,
+              ),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: selected ? AppTheme.accentBlue : Colors.grey.shade700),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: selected ? AppTheme.accentBlue : Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ],
           ),

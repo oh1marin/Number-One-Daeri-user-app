@@ -314,14 +314,14 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                           )
                         else
                           SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gridPad, 0, gridPad, 12),
+                            padding: EdgeInsets.fromLTRB(gridPad, 0, gridPad, 8),
                             sliver: SliverGrid(
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
-                                childAspectRatio: 0.66,
+                                mainAxisSpacing: 10,
+                                crossAxisSpacing: 10,
+                                childAspectRatio: 0.72,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -359,7 +359,7 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                           ),
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 0),
+                            padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 4),
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -388,7 +388,11 @@ class _GifticonShopScreenState extends State<GifticonShopScreen> {
                             ),
                           ),
                         ),
-                        const SliverToBoxAdapter(child: AppScrollSafeGap(extra: 12)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: ResponsiveLayout.bottomSafeInset(context, extra: 4),
+                          ),
+                        ),
                       ],
                     ),
                   ),

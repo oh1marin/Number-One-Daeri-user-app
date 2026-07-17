@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/app_update_service.dart';
+import '../../services/event_popup_service.dart';
 import '../../theme/app_theme.dart';
 import 'home_screen.dart';
 
@@ -21,8 +22,11 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) AppUpdateService.promptIfNeeded(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await AppUpdateService.promptIfNeeded(context);
+      if (!mounted) return;
+      await EventPopupService.promptIfNeeded(context);
     });
   }
 

@@ -6,6 +6,7 @@ import '../../api/mileage_api.dart';
 import '../../api/withdrawal_api.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
+import '../../utils/responsive_layout.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
@@ -32,7 +33,6 @@ class WithdrawalScreen extends StatefulWidget {
 
 class _WithdrawalScreenState extends State<WithdrawalScreen> {
   // 잔액
-  int _balance = 0;
   int _withdrawable = 0;
   bool _loadingBalance = true;
   String? _balanceError;
@@ -69,7 +69,6 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
           .timeout(const Duration(seconds: 8));
       if (mounted) {
         setState(() {
-          _balance = bal.balance;
           _withdrawable = bal.withdrawable;
           _loadingBalance = false;
         });
@@ -89,10 +88,10 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
         (m) => '${m[1]},',
       );
 
-  /// 보유 마일리지와 1회 최대 100만원 중 작은 값
+  /// 출금 가능 금액과 1회 최대 100만원 중 작은 값
   int get _maxRequestableAmount {
-    if (_balance <= 0) return 0;
-    return _balance > kWithdrawalMax ? kWithdrawalMax : _balance;
+    if (_withdrawable <= 0) return 0;
+    return _withdrawable > kWithdrawalMax ? kWithdrawalMax : _withdrawable;
   }
 
   void _fillAll() {
@@ -110,8 +109,8 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
     if (amountRaw % kWithdrawalStep != 0) {
       return '${_fmt(kWithdrawalStep)}원 단위로 입력하세요.';
     }
-    if (amountRaw > _balance) {
-      return '보유 마일리지(${_fmt(_balance)}원)를 초과할 수 없습니다.';
+    if (amountRaw > _withdrawable) {
+      return '출금 가능 금액(${_fmt(_withdrawable)}원)을 초과할 수 없습니다.';
     }
     if (amountRaw > kWithdrawalMax) {
       return '1회 최대 출금액은 ${_fmt(kWithdrawalMax)}원입니다.';
@@ -191,141 +190,131 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hPad = ResponsiveLayout.pageHorizontal(context);
+    final bottomPad = ResponsiveLayout.bottomSafeInset(context, extra: 8);
     return ConnectivityReconnectListener(
       onReconnect: _loadBalance,
       child: Scaffold(
       backgroundColor: AppTheme.surfaceGrey,
       appBar: AppBar(title: const Text('출금신청')),
-      body: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(hPad, 16, hPad, bottomPad),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_balanceError != null)
+              LoadErrorView(
+                message: _balanceError!,
+                onRetry: _loadBalance,
+                compact: true,
+              )
+            else
+              _BalanceCard(
+                withdrawable: _withdrawable,
+                fmt: _fmt,
+                loading: _loadingBalance,
+              ),
+            const Gap(16),
+            const _SectionLabel('출금액'),
+            Row(
+              children: [
+                Expanded(
+                  child: _InputBox(
+                    controller: _amountCtrl,
+                    hint: _loadingBalance
+                        ? '잔액 불러오는 중...'
+                        : '최소 ${_fmt(kWithdrawalMin)}원',
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    suffix: const Text('원', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const Gap(10),
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: _loadingBalance || _maxRequestableAmount < kWithdrawalMin
+                        ? null
+                        : _fillAll,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('전액'),
+                  ),
+                ),
+              ],
+            ),
+            if (!_loadingBalance) ...[
+              const Gap(6),
+              Text(
+                '출금 가능 최대 100만원',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+            const Gap(12),
+            const _SectionLabel('은행'),
+            _BankSelector(
+              selected: _selectedBank,
+              onSelect: (b) => setState(() => _selectedBank = b),
+            ),
+            const Gap(12),
+            const _SectionLabel('계좌번호'),
+            _InputBox(
+              controller: _accountCtrl,
+              hint: '숫자만 입력',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\-]'))],
+            ),
+            const Gap(12),
+            const _SectionLabel('예금주'),
+            _InputBox(controller: _holderCtrl, hint: '예금주 이름'),
+            const Gap(12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_balanceError != null)
-                    LoadErrorView(
-                      message: _balanceError!,
-                      onRetry: _loadBalance,
-                      compact: true,
-                    )
-                  else
-                    _BalanceCard(
-                      balance: _balance,
-                      withdrawable: _withdrawable,
-                      fmt: _fmt,
-                      onFillAll: _fillAll,
-                      loading: _loadingBalance,
-                    ),
-                  const Gap(24),
-
-                  // 출금액
-                  _SectionLabel('출금액'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InputBox(
-                          controller: _amountCtrl,
-                          hint: _loadingBalance
-                              ? '잔액 불러오는 중...'
-                              : '최소 ${_fmt(kWithdrawalMin)}원 · 1만원 단위',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          suffix: const Text('원'),
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const Gap(10),
-                      OutlinedButton(
-                        onPressed: _loadingBalance || _maxRequestableAmount < kWithdrawalMin
-                            ? null
-                            : _fillAll,
-                        child: const Text('전액'),
-                      ),
-                    ],
-                  ),
-                  if (!_loadingBalance) ...[
-                    const Gap(6),
-                    Text(
-                      '출금 가능 최대 ${_fmt(_maxRequestableAmount)}원 '
-                      '(보유 ${_fmt(_balance)}원 · 1회 한도 ${_fmt(kWithdrawalMax)}원)',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
-                    ),
-                  ],
-                  const Gap(16),
-
-                  // 은행 선택
-                  _SectionLabel('은행'),
-                  _BankSelector(
-                    selected: _selectedBank,
-                    onSelect: (b) => setState(() => _selectedBank = b),
-                  ),
-                  const Gap(16),
-
-                  // 계좌번호
-                  _SectionLabel('계좌번호'),
-                  _InputBox(
-                    controller: _accountCtrl,
-                    hint: '숫자만 입력 (- 없이)',
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\-]'))],
-                  ),
-                  const Gap(16),
-
-                  // 예금주
-                  _SectionLabel('예금주'),
-                  _InputBox(controller: _holderCtrl, hint: '예금주 이름'),
-                  const Gap(20),
-
-                  // 주의사항
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 18),
-                        const Gap(8),
-                        Expanded(
-                          child: Text(
-                            '출금액은 ${_fmt(kWithdrawalMin)}원 이상 ${_fmt(kWithdrawalStep)}원 단위이며, '
-                            '보유 마일리지·1회 ${_fmt(kWithdrawalMax)}원을 넘을 수 없습니다.\n'
-                            '출금 시 ${_fmt(kWithdrawalFee)}원 수수료가 부과됩니다.\n'
-                            '영업일 기준 1~2일 내 처리됩니다.',
-                            style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.5),
-                          ),
-                        ),
-                      ],
+                  Icon(Icons.info_outline_rounded, color: Colors.orange.shade700, size: 18),
+                  const Gap(8),
+                  Expanded(
+                    child: Text(
+                      '수수료 ${_fmt(kWithdrawalFee)}원 · 영업일 1~2일 내 처리',
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800, height: 1.4, fontWeight: FontWeight.w500),
                     ),
                   ),
-                  const Gap(32),
-
-                  // 출금요청 버튼
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _submitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _submitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : const Text('출금요청', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const Gap(40),
                 ],
               ),
             ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _submitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                      )
+                    : const Text('출금요청', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
     );
   }
@@ -335,23 +324,19 @@ class _WithdrawalScreenState extends State<WithdrawalScreen> {
 
 class _BalanceCard extends StatelessWidget {
   const _BalanceCard({
-    required this.balance,
     required this.withdrawable,
     required this.fmt,
-    required this.onFillAll,
     this.loading = false,
   });
 
-  final int balance;
   final int withdrawable;
   final String Function(int) fmt;
-  final VoidCallback onFillAll;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppTheme.accentBlue, AppTheme.lightBlue],
@@ -361,40 +346,53 @@ class _BalanceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.accentBlue.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppTheme.accentBlue.withValues(alpha: 0.22),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: loading
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                    ),
-                  )
-                : Column(
+      child: loading
+          ? const SizedBox(
+              height: 64,
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+              ),
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('보유 마일리지', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
-                      const Gap(4),
-                      Text('${fmt(balance)}원',
-                          style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-                      const Gap(10),
-                      Text('출금가능액', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
-                      Text('${fmt(withdrawable)}원',
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+                      Text(
+                        '출금 가능',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Gap(6),
+                      Text(
+                        '${fmt(withdrawable)}원',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
                     ],
                   ),
-          ),
-          if (!loading)
-            Icon(Icons.account_balance_wallet, color: Colors.white.withValues(alpha: 0.6), size: 40),
-        ],
-      ),
+                ),
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  size: 32,
+                ),
+              ],
+            ),
     );
   }
 }
@@ -406,8 +404,15 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          color: AppTheme.primaryDark,
+        ),
+      ),
     );
   }
 }
@@ -436,6 +441,7 @@ class _InputBox extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       onChanged: onChanged,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
@@ -443,10 +449,10 @@ class _InputBox extends StatelessWidget {
         suffixIconConstraints: const BoxConstraints(),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppTheme.accentBlue, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.accentBlue, width: 1.5)),
       ),
     );
   }
@@ -461,21 +467,23 @@ class _BankSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 48,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selected,
           hint: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Text('은행 선택', style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
           ),
           isExpanded: true,
-          borderRadius: BorderRadius.circular(10),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.primaryDark),
           items: _kBanks.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
           onChanged: (v) { if (v != null) onSelect(v); },
         ),

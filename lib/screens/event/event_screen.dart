@@ -375,11 +375,9 @@ class _EventHeroBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ContentHeroBanner(
-      icon: PhosphorIconsRegular.confetti,
-      title: '일등대리 이벤트',
-      subtitle: '마일리지·쿠폰·친구 추천 등\n다양한 혜택을 놓치지 마세요',
-      gradient: [Color(0xFFF59E0B), Color(0xFFEA580C)],
+    return const ContentHeroBanner.image(
+      imageAsset: 'assets/images/banner_event.png',
+      imageAspectRatio: 1024 / 548,
     );
   }
 }
@@ -522,24 +520,17 @@ class _EventCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 72,
-              height: 72,
-              color: AppTheme.surfaceGrey,
-              child: thumb != null
-                  ? AppNetworkImage(url: thumb, fit: BoxFit.cover)
-                  : const Center(
-                      child: PhosphorIcon(
-                        PhosphorIconsRegular.confetti,
-                        color: AppTheme.textSecondary,
-                        size: 28,
-                      ),
-                    ),
+          if (thumb != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: AppNetworkImage(url: thumb, fit: BoxFit.cover),
+              ),
             ),
-          ),
-          const Gap(12),
+            const Gap(12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

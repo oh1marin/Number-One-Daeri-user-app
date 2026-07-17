@@ -213,28 +213,67 @@ class ContentHeroBanner extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.gradient,
-  });
+  })  : imageAsset = null,
+        imageAspectRatio = 2.1;
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final List<Color> gradient;
+  const ContentHeroBanner.image({
+    super.key,
+    required this.imageAsset,
+    this.imageAspectRatio = 2.1,
+  })  : icon = null,
+        title = null,
+        subtitle = null,
+        gradient = null;
+
+  final IconData? icon;
+  final String? title;
+  final String? subtitle;
+  final List<Color>? gradient;
+  final String? imageAsset;
+  final double imageAspectRatio;
 
   @override
   Widget build(BuildContext context) {
+    if (imageAsset != null) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: AspectRatio(
+            aspectRatio: imageAspectRatio,
+            child: Image.asset(
+              imageAsset!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: gradient,
+          colors: gradient!,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: gradient.last.withValues(alpha: 0.28),
+            color: gradient!.last.withValues(alpha: 0.28),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -248,7 +287,7 @@ class ContentHeroBanner extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: PhosphorIcon(icon, color: Colors.white, size: 22),
+            child: PhosphorIcon(icon!, color: Colors.white, size: 22),
           ),
           const Gap(14),
           Expanded(
@@ -256,7 +295,7 @@ class ContentHeroBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  title!,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -266,7 +305,7 @@ class ContentHeroBanner extends StatelessWidget {
                 ),
                 const Gap(4),
                 Text(
-                  subtitle,
+                  subtitle!,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 12,

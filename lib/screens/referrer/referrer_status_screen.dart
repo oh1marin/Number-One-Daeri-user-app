@@ -9,6 +9,7 @@ import '../../utils/app_share_text.dart';
 import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
+import '../../widgets/friend_referral_background.dart';
 import '../../widgets/load_error_view.dart';
 
 /// 내추천인 현황 - 1줄 추천인 요약 + 실적
@@ -81,7 +82,7 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
           : _error != null
               ? LoadErrorView(message: _error!, onRetry: _load)
               : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -105,6 +106,7 @@ class _ReferrerStatusScreenState extends State<ReferrerStatusScreen> {
                     hasData: _count > 0,
                     onTap: _shareApp,
                   ),
+                  const AppScrollSafeGap(extra: 16),
                 ],
               ),
             ),
@@ -188,13 +190,9 @@ class _BenefitsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return FriendReferralBackgroundCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      borderRadius: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -203,7 +201,7 @@ class _BenefitsSection extends StatelessWidget {
             content: '친구 가입 시 2,000원 → 첫 이용 시 3,000원 추가 → 친구 이용할 때마다 이용금액의 5% 적립!',
           ),
           const Gap(16),
-          Divider(color: Colors.grey.shade200),
+          Divider(color: Colors.grey.shade300),
           const Gap(12),
           _BenefitBlock(
             title: '기본 혜택 (모든 사용자)',
@@ -237,8 +235,8 @@ class _BenefitBlock extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.accentBlue,
                 ),
               ),
@@ -248,7 +246,12 @@ class _BenefitBlock extends StatelessWidget {
         const Gap(10),
         Text(
           content,
-          style: TextStyle(fontSize: 14, height: 1.5, color: Colors.grey.shade800),
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.55,
+            color: AppTheme.primaryDark,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );

@@ -10,6 +10,7 @@ import '../../utils/user_friendly_text.dart';
 import '../../widgets/app_screen_widgets.dart';
 import '../../widgets/connectivity_banner.dart';
 import '../../widgets/load_error_view.dart';
+import '../../widgets/mileage_gifticon_banner.dart';
 import '../../widgets/signup_bonus_mileage_notice.dart';
 
 /// 마일리지 화면 — 순수 마일리지만 표시 (쿠폰 완전 분리)
@@ -212,23 +213,25 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return MileageGifticonBackgroundCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A2F7A), AppTheme.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryDark.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
+      borderRadius: 16,
+      imageAlignment: Alignment.center,
+      gradient: LinearGradient(
+        colors: [
+          const Color(0xFF1A2F7A).withValues(alpha: 0.57),
+          AppTheme.primaryDark.withValues(alpha: 0.33),
         ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: AppTheme.primaryDark.withValues(alpha: 0.25),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,7 +244,7 @@ class _BalanceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
-                  '순수 마일리지',
+                  '마일리지',
                   style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -255,7 +258,7 @@ class _BalanceCard extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5),
           ),
           const Gap(4),
-          Text('가입 시 10,000원 / 카드 결제 10% 적립', style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11)),
+          Text('가입 시 10,000원 / 카드 결제 10% 적립', style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12, fontWeight: FontWeight.w500)),
           const Gap(12),
           Row(
             children: [
@@ -316,7 +319,7 @@ class _BalanceCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('출금가능', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                  Text('출금가능', style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13, fontWeight: FontWeight.w600)),
                   const Gap(2),
                   Text('${fmt(withdrawable)}원', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                 ],

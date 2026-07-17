@@ -334,11 +334,9 @@ class _NoticeHeroBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ContentHeroBanner(
-      icon: PhosphorIconsRegular.megaphone,
-      title: '일등대리 공지사항',
-      subtitle: '서비스 운영·이벤트·혜택 소식을\n가장 빠르게 확인하세요',
-      gradient: [AppTheme.primaryDark, Color(0xFF1A3A8F)],
+    return const ContentHeroBanner.image(
+      imageAsset: 'assets/images/banner_notice.png',
+      imageAspectRatio: 1024 / 414,
     );
   }
 }

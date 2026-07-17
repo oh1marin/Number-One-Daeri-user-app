@@ -29,6 +29,7 @@ import 'screens/onboarding/phone_verify_screen.dart';
 import 'screens/onboarding/referrer_screen.dart';
 import 'screens/onboarding/terms_screen.dart';
 import 'screens/qa/qa_screen.dart';
+import 'screens/referrer/friend_invite_screen.dart';
 import 'screens/referrer/referrer_status_screen.dart';
 import 'screens/receipt/cash_receipt_screen.dart';
 import 'screens/ride_history/ride_history_screen.dart';
@@ -204,6 +205,7 @@ class MyApp extends StatelessWidget {
         '/coupon': (context) => const CouponScreen(),
         '/account-delete': (context) => const AccountDeleteScreen(),
         '/referrer-status': (context) => const ReferrerStatusScreen(),
+        '/friend-invite': (context) => const FriendInviteScreen(),
         '/faq': (context) => const FaqScreen(),
         '/cash-receipt': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;

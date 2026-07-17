@@ -6,6 +6,7 @@ import '../../config/media_url.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/user_friendly_text.dart';
 import '../app_network_image.dart';
+import '../mileage_gifticon_banner.dart';
 import '../signup_bonus_mileage_notice.dart';
 
 /// 기프티콘 상단 잔액 배너
@@ -25,24 +26,26 @@ class GifticonBalanceHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return MileageGifticonBackgroundCard(
       margin: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 6),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2E7D32).withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+      borderRadius: 14,
+      imageAlignment: Alignment.center,
+      gradient: LinearGradient(
+        colors: [
+          const Color(0xFF2E7D32).withValues(alpha: 0.57),
+          const Color(0xFF1B5E20).withValues(alpha: 0.33),
         ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF2E7D32).withValues(alpha: 0.2),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,7 +95,7 @@ class GifticonBalanceHeader extends StatelessWidget {
             gifticonSpendable != null && gifticonSpendable! < balance
                 ? '보유 마일리지'
                 : '교환 가능 마일리지',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const Gap(2),
           Text(
@@ -117,13 +120,13 @@ class GifticonBalanceHeader extends StatelessWidget {
             const Gap(4),
             Text(
               kSignupBonusMileageNotice,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ] else ...[
             const Gap(6),
             Text(
               '1P = 1원 · 교환 시 즉시 차감 · 기프티콘은 문자(MMS)로 발송',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ],
         ],
@@ -257,86 +260,88 @@ class GifticonProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              GifticonProductImage(
-                product: product,
-                height: 80,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: product.brandColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          product.brandLabel,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: product.brandColor.withValues(alpha: 0.95),
-                          ),
+                child: GifticonProductImage(
+                  product: product,
+                  fit: BoxFit.contain,
+                  imagePadding: const EdgeInsets.all(10),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: product.brandColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        product.brandLabel,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: product.brandColor.withValues(alpha: 0.95),
                         ),
                       ),
-                      const Gap(4),
+                    ),
+                    const Gap(3),
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryDark,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (product.subtitle.isNotEmpty) ...[
+                      const Gap(1),
                       Text(
-                        product.name,
-                        maxLines: 2,
+                        product.subtitle,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryDark,
-                          height: 1.2,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey.shade600,
                         ),
-                      ),
-                      if (product.subtitle.isNotEmpty) ...[
-                        const Gap(2),
-                        Text(
-                          product.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${formatKrw(product.mileagePrice)}P',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              color: canAfford
-                                  ? const Color(0xFF2E7D32)
-                                  : Colors.red.shade400,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          if (!canAfford) ...[
-                            const Gap(4),
-                            Text(
-                              '부족',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.red.shade500,
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
                     ],
-                  ),
+                    const Gap(4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${formatKrw(product.mileagePrice)}P',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: canAfford
+                                ? const Color(0xFF2E7D32)
+                                : Colors.red.shade400,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        if (!canAfford) ...[
+                          const Gap(4),
+                          Text(
+                            '부족',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.red.shade500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -479,12 +484,16 @@ class GifticonProductImage extends StatelessWidget {
   const GifticonProductImage({
     super.key,
     required this.product,
-    this.height = 188,
+    this.height,
+    this.fit = BoxFit.cover,
+    this.imagePadding = EdgeInsets.zero,
     this.borderRadius,
   });
 
   final GifticonProduct product;
-  final double height;
+  final double? height;
+  final BoxFit fit;
+  final EdgeInsetsGeometry imagePadding;
   final BorderRadius? borderRadius;
 
   @override
@@ -512,40 +521,50 @@ class GifticonProductImage extends StatelessWidget {
       ),
     );
 
+    Widget imageBody = img != null
+        ? SizedBox.expand(
+            child: AppNetworkImage(
+              url: img,
+              fit: fit,
+              alignment: Alignment.center,
+              errorWidget: Center(child: fallback),
+            ),
+          )
+        : Center(child: fallback);
+
+    if (imagePadding != EdgeInsets.zero) {
+      imageBody = Padding(padding: imagePadding, child: imageBody);
+    }
+
+    final surface = Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            product.brandColor.withValues(alpha: 0.12),
+            product.brandColor.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: radius,
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: imageBody,
+      ),
+    );
+
     return Stack(
       children: [
-        Container(
-          height: height,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                product.brandColor.withValues(alpha: 0.14),
-                product.brandColor.withValues(alpha: 0.04),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: radius,
-          ),
-          child: img != null
-              ? ClipRRect(
-                  borderRadius: radius,
-                  child: AppNetworkImage(
-                    url: img,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    errorWidget: Center(child: fallback),
-                  ),
-                )
-              : Center(child: fallback),
-        ),
+        surface,
         if (product.badge != null)
           Positioned(
-            top: 12,
-            left: 12,
+            top: 8,
+            left: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFFE53935),
                 borderRadius: BorderRadius.circular(8),
@@ -554,7 +573,7 @@ class GifticonProductImage extends StatelessWidget {
                 product.badge!,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
               ),

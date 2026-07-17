@@ -7,6 +7,7 @@ import '../../api/referral_api.dart';
 import '../../services/onboarding_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_snackbar.dart';
+import '../../widgets/friend_referral_background.dart';
 
 /// 내추천인 등록 - 앱 메뉴에서 사용
 class ReferrerScreen extends StatefulWidget {
@@ -125,34 +126,33 @@ class _ReferrerScreenState extends State<ReferrerScreen> {
 class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return FriendReferralBackgroundCard(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.accentBlue,
-            AppTheme.lightBlue,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accentBlue.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
+      borderRadius: 16,
+      imageAlignment: Alignment.centerRight,
+      gradient: LinearGradient(
+        colors: [
+          AppTheme.accentBlue.withValues(alpha: 0.55),
+          AppTheme.lightBlue.withValues(alpha: 0.30),
         ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
       ),
+      boxShadow: [
+        BoxShadow(
+          color: AppTheme.accentBlue.withValues(alpha: 0.3),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
       child: Column(
         children: [
           Text(
             '나를 추천해 준 분',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: Colors.white.withValues(alpha: 0.98),
               fontSize: 18,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const Gap(8),
@@ -168,9 +168,9 @@ class _HeroSection extends StatelessWidget {
           Text(
             '가입 후 언제든 1명만 등록',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: Colors.white.withValues(alpha: 0.95),
               fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -183,27 +183,31 @@ class _HeroSection extends StatelessWidget {
 class _BidirectionalBenefitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _BenefitPill(
-            label: '가입 보너스',
-            amount: '10,000P',
-            sub: '대리 전용·추천 무관',
+    return FriendReferralBackgroundCard(
+      padding: const EdgeInsets.all(12),
+      borderRadius: 16,
+      child: Row(
+        children: [
+          Expanded(
+            child: _BenefitPill(
+              label: '가입 보너스',
+              amount: '10,000P',
+              sub: '대리 전용·추천 무관',
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: PhosphorIcon(PhosphorIconsRegular.arrowsLeftRight, color: Colors.grey.shade500, size: 20),
-        ),
-        Expanded(
-          child: _BenefitPill(
-            label: '나를 추천해 준 분',
-            amount: '2,000원',
-            sub: '친구 등록 시',
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: PhosphorIcon(PhosphorIconsRegular.arrowsLeftRight, color: Colors.grey.shade500, size: 20),
           ),
-        ),
-      ],
+          Expanded(
+            child: _BenefitPill(
+              label: '나를 추천해 준 분',
+              amount: '2,000원',
+              sub: '친구 등록 시',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -233,18 +237,18 @@ class _BenefitPill extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          Text(label, style: TextStyle(color: AppTheme.primaryDark.withValues(alpha: 0.75), fontSize: 13, fontWeight: FontWeight.w600)),
           const Gap(4),
           Text(
             amount,
             style: const TextStyle(
               color: AppTheme.accentBlue,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const Gap(2),
-          Text(sub, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+          Text(sub, style: TextStyle(color: AppTheme.primaryDark.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       ),
     );
